@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 
-export const Layout = ({ children }: PropsWithChildren): JSX.Element => {
+export const Layout = ({ children }: PropsWithChildren) => {
   return (
     <main className="layout">
       <header className="layout__header">

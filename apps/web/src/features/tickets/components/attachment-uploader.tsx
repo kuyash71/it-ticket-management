@@ -1,4 +1,4 @@
-export const AttachmentUploader = (): JSX.Element => {
+export const AttachmentUploader = () => {
   return (
     <section className="panel">
       <h3>Attachment</h3>

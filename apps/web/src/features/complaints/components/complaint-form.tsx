@@ -1,4 +1,4 @@
-export const ComplaintForm = (): JSX.Element => {
+export const ComplaintForm = () => {
   return (
     <section className="panel complaint-panel">
       <h2>Service Quality Complaint</h2>

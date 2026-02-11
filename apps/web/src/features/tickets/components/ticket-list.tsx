@@ -6,7 +6,7 @@ interface TicketListProps {
   onSelect: (ticketId: string) => void;
 }
 
-export const TicketList = ({ tickets, selectedId, onSelect }: TicketListProps): JSX.Element => {
+export const TicketList = ({ tickets, selectedId, onSelect }: TicketListProps) => {
   return (
     <section className="panel">
       <h2>Tickets</h2>

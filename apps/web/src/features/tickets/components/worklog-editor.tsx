@@ -1,4 +1,4 @@
-export const WorklogEditor = (): JSX.Element => {
+export const WorklogEditor = () => {
   return (
     <section className="panel">
       <h3>Worklog</h3>

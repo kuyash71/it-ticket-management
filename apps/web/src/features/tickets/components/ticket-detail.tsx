@@ -6,7 +6,7 @@ interface TicketDetailProps {
   ticket: TicketViewModel;
 }
 
-export const TicketDetail = ({ ticket }: TicketDetailProps): JSX.Element => {
+export const TicketDetail = ({ ticket }: TicketDetailProps) => {
   return (
     <section className="panel">
       <h2>{ticket.title}</h2>

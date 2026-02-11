@@ -5,7 +5,7 @@ import { TimelinePanel } from "../components/timeline-panel";
 import { WorklogEditor } from "../components/worklog-editor";
 import { useTicketBoard } from "../hooks/use-ticket-board";
 
-export const TicketBoardPage = (): JSX.Element => {
+export const TicketBoardPage = () => {
   const { tickets, selectedId, selectedTicket, setSelectedId } = useTicketBoard();
 
   return (

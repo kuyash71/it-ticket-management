@@ -4,7 +4,7 @@ interface TimelinePanelProps {
   ticket: TicketViewModel;
 }
 
-export const TimelinePanel = ({ ticket }: TimelinePanelProps): JSX.Element => {
+export const TimelinePanel = ({ ticket }: TimelinePanelProps) => {
   return (
     <section className="panel">
       <h3>Timeline</h3>

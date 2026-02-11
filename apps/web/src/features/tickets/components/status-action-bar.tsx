@@ -6,7 +6,7 @@ interface StatusActionBarProps {
   actions: AllowedAction[];
 }
 
-export const StatusActionBar = ({ actions }: StatusActionBarProps): JSX.Element => {
+export const StatusActionBar = ({ actions }: StatusActionBarProps) => {
   return (
     <div className="action-bar">
       {actions.map((action) => (

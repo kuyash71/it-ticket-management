@@ -4,6 +4,6 @@ interface SlaBadgeProps {
   riskLevel: SlaRiskLevel;
 }
 
-export const SlaBadge = ({ riskLevel }: SlaBadgeProps): JSX.Element => {
+export const SlaBadge = ({ riskLevel }: SlaBadgeProps) => {
   return <span className={`sla-badge sla-badge--${riskLevel.toLowerCase()}`}>{riskLevel}</span>;
 };
