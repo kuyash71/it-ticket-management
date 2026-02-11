@@ -1,0 +1,150 @@
+:root {
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color: #1f2328;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.layout__header {
+  margin-bottom: 24px;
+}
+
+.layout__content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ticket-board-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+}
+
+.ticket-board-main {
+  display: grid;
+  gap: 16px;
+}
+
+.panel {
+  border: 1px solid #d0d7de;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.ticket-list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+}
+
+.ticket-button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d0d7de;
+  background: #f6f8fa;
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.ticket-button--active {
+  border-color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.ticket-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-bar {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-chip {
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.sla-badge {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sla-badge--normal {
+  background: #dcfce7;
+}
+
+.sla-badge--warning {
+  background: #fef08a;
+}
+
+.sla-badge--risk {
+  background: #fed7aa;
+}
+
+.sla-badge--breach {
+  background: #fecaca;
+}
+
+.timeline-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.worklog-textarea,
+.complaint-form textarea,
+.complaint-form input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 6px;
+}
+
+.complaint-form {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 960px) {
+  .ticket-board-grid {
+    grid-template-columns: 1fr;
+  }
+}

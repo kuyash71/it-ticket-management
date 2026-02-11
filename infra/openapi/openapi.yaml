@@ -1,0 +1,243 @@
+openapi: 3.1.0
+info:
+  title: IT Ticket Management API
+  version: 0.1.0
+  description: MVP API draft aligned with analysis and design documents.
+servers:
+  - url: http://localhost:3000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+  /tickets:
+    get:
+      summary: List tickets
+      responses:
+        '200':
+          description: Ticket list
+    post:
+      summary: Create ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketRequest'
+      responses:
+        '201':
+          description: Ticket created
+  /tickets/{ticketId}/status:
+    post:
+      summary: Change ticket status
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStatusRequest'
+      responses:
+        '200':
+          description: Status changed
+        '403':
+          description: RBAC violation
+        '409':
+          description: Invalid transition or concurrency conflict
+  /tickets/{ticketId}/priority:
+    post:
+      summary: Change urgency/impact and recompute priority
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePriorityRequest'
+      responses:
+        '200':
+          description: Priority updated
+        '403':
+          description: Unauthorized action
+  /tickets/{ticketId}/reassign:
+    post:
+      summary: Reassign ticket owner
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReassignRequest'
+      responses:
+        '200':
+          description: Assignment updated
+        '403':
+          description: Unauthorized action
+  /tickets/{ticketId}/override:
+    post:
+      summary: Manager override status change
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManagerOverrideRequest'
+      responses:
+        '200':
+          description: Override applied
+        '403':
+          description: Unauthorized action
+  /tickets/{ticketId}/allowed-actions:
+    get:
+      summary: Get allowed actions for role
+      parameters:
+        - in: path
+          name: ticketId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: role
+          required: true
+          schema:
+            $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: Allowed actions response
+  /reporting/summary:
+    get:
+      summary: MVP reporting summary
+      responses:
+        '200':
+          description: Aggregated metrics
+  /complaints:
+    post:
+      summary: Create service quality complaint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComplaintRequest'
+      responses:
+        '201':
+          description: Complaint created
+components:
+  schemas:
+    Role:
+      type: string
+      enum: [CUSTOMER, AGENT, MANAGER]
+    TicketType:
+      type: string
+      enum: [INCIDENT, SERVICE_REQUEST]
+    TicketStatus:
+      type: string
+      enum: [NEW, IN_PROGRESS, WAITING_FOR_CUSTOMER, RESOLVED, CLOSED]
+    Urgency:
+      type: string
+      enum: [LOW, MEDIUM, HIGH]
+    Impact:
+      type: string
+      enum: [LOW, MEDIUM, HIGH]
+    CreateTicketRequest:
+      type: object
+      required: [type, title, description, reporterId, urgency, impact]
+      properties:
+        type:
+          $ref: '#/components/schemas/TicketType'
+        title:
+          type: string
+        description:
+          type: string
+        reporterId:
+          type: string
+        urgency:
+          $ref: '#/components/schemas/Urgency'
+        impact:
+          $ref: '#/components/schemas/Impact'
+        requiresApproval:
+          type: boolean
+    ChangeStatusRequest:
+      type: object
+      required: [actorRole, nextStatus, actorId]
+      properties:
+        actorRole:
+          $ref: '#/components/schemas/Role'
+        actorId:
+          type: string
+        nextStatus:
+          $ref: '#/components/schemas/TicketStatus'
+        reason:
+          type: string
+    ChangePriorityRequest:
+      type: object
+      required: [actorRole, actorId, urgency, impact, reason]
+      properties:
+        actorRole:
+          $ref: '#/components/schemas/Role'
+        actorId:
+          type: string
+        urgency:
+          $ref: '#/components/schemas/Urgency'
+        impact:
+          $ref: '#/components/schemas/Impact'
+        reason:
+          type: string
+    ReassignRequest:
+      type: object
+      required: [actorRole, actorId, assigneeId, reason]
+      properties:
+        actorRole:
+          $ref: '#/components/schemas/Role'
+        actorId:
+          type: string
+        assigneeId:
+          type: string
+        reason:
+          type: string
+    ManagerOverrideRequest:
+      type: object
+      required: [actorRole, actorId, forcedStatus, reason]
+      properties:
+        actorRole:
+          $ref: '#/components/schemas/Role'
+        actorId:
+          type: string
+        forcedStatus:
+          $ref: '#/components/schemas/TicketStatus'
+        reason:
+          type: string
+    CreateComplaintRequest:
+      type: object
+      required: [ticketId, reporterId, description]
+      properties:
+        ticketId:
+          type: string
+        reporterId:
+          type: string
+        description:
+          type: string
