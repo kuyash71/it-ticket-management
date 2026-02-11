@@ -1,57 +1,125 @@
-# IT Ticket Management - MVP Skeleton
+# IT Ticket Management
 
-This repository contains a full project skeleton generated from:
+IT Ticket Management, analiz ve tasarım dokümanlarında tanımlanan ITSM MVP kapsamını temel alan bir monorepo proje iskeletidir.
 
+Referans dokümanlar:
 - `docs/reports/ITSM Analiz Dokümanı.pdf`
 - `docs/reports/tasarım.md`
 
-The structure follows the documented MVP scope:
+## Hedeflenen MVP
 
-- Incident and Service Request separation
-- Ticket lifecycle and status transition controls
+- Incident ve Service Request ayrımı
+- Kurallı ticket yaşam döngüsü ve status transition kontrolü
 - RBAC (Customer, Agent, Manager)
-- SLA clock and escalation risk levels
-- Timeline, audit, attachment, reporting foundations
-- Service quality complaint handling (manager-facing)
+- Urgency/Impact tabanlı önceliklendirme
+- SLA clock (start/pause/resume/stop) ve risk seviyeleri
+- Audit + Timeline + Attachment görünürlük ayrımı
+- Manager override (reason + audit zorunlu)
+- Servis kalitesi şikayet akışı
 
-## Repository Layout
+## Kapsam Dışı (MVP)
+
+- Harici sistem entegrasyonları
+- Gelişmiş otomasyon ve AI karar mekanizmaları
+- Gelişmiş raporlama/projection optimizasyonu (Phase-2)
+- CMDB ve finansal süreçler
+
+## Repository Yapısı
 
 ```text
 apps/
-  api/            # Backend API skeleton (Fastify + DDD style folders)
-  web/            # Frontend skeleton (React + Vite feature folders)
+  api/                    # Fastify + DDD katmanlı backend iskeleti
+  web/                    # React + Vite feature bazlı frontend iskeleti
 packages/
-  contracts/      # Shared enums, DTOs, events, action contracts
+  contracts/              # Ortak enum, DTO, event sözleşmeleri
 infra/
-  db/             # SQL schema for MVP entities
-  openapi/        # API contract draft
-  docker-compose.yml
+  db/schema.sql           # MVP başlangıç şeması
+  openapi/openapi.yaml    # API kontrat taslağı
+  docker-compose.yml      # Postgres + MinIO
 
 docs/
-  reports/        # Provided analysis and design reports
-  architecture/   # Traceability and implementation notes
+  README.md               # Dokümantasyon indeksi
+  checklist.md            # Sprint bazlı %100 tamamlanma planı
+  architecture/           # Mimari izlenebilirlik ve teknik notlar
+  reports/                # Kaynak analiz/tasarım dokümanları
 ```
 
-## Quick Start (after dependency install)
+## Gereksinimler
 
-Prerequisites: Node.js 22+, pnpm 10+.
+- Node.js 22+
+- pnpm 10+
+- Docker (opsiyonel, local servisler için)
+
+## Hızlı Başlangıç
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Backend default: `http://localhost:3000`.
+Varsayılan adresler:
+- API: `http://localhost:3000`
+- Web: `http://localhost:5173`
 
-## MVP Scope Mapping
+## Komutlar
 
-- Domain rules and policy stubs: `apps/api/src/modules/tickets/domain`
-- Use-case skeletons: `apps/api/src/modules/tickets/application`
-- HTTP contracts and endpoints: `apps/api/src/modules/**/presentation/http`
-- Shared contract package: `packages/contracts/src`
-- Traceability notes: `docs/architecture/mvp-traceability.md`
+Root komutları:
 
-## Notes
+```bash
+pnpm dev
+pnpm build
+pnpm test
+pnpm lint
+```
 
-- This is an architecture skeleton, not a production-complete implementation.
-- Some files intentionally include TODO-level placeholders where detailed behavior belongs in Phase-2.
+Workspace bazlı örnekler:
+
+```bash
+pnpm --filter @itsm/api dev
+pnpm --filter @itsm/web dev
+pnpm --filter @itsm/contracts build
+```
+
+## API Özet Uçları
+
+- `GET /health`
+- `GET /tickets`
+- `POST /tickets`
+- `GET /tickets/:ticketId`
+- `POST /tickets/:ticketId/status`
+- `POST /tickets/:ticketId/priority`
+- `POST /tickets/:ticketId/reassign`
+- `POST /tickets/:ticketId/override`
+- `GET /tickets/:ticketId/allowed-actions?role=AGENT`
+- `GET /reporting/summary`
+- `POST /complaints`
+
+Detaylar için: `infra/openapi/openapi.yaml`
+
+## Kalite ve Kısıtlar
+
+- Maksimum sayfa boyutu: 50
+- JWT expiry hedefi: 15 dakika
+- Attachment boyut limiti: 10 MB
+- Audit retention hedefi: minimum 1 yıl
+
+## Dokümantasyon
+
+- Dokümantasyon indeksi: `docs/README.md`
+- Sprint checklist: `docs/checklist.md`
+- Traceability: `docs/architecture/mvp-traceability.md`
+
+## CI
+
+GitHub Actions pipeline:
+
+1. Install (`pnpm install --frozen-lockfile`)
+2. Lint
+3. Test
+4. Build
+
+Workflow dosyası: `.github/workflows/ci.yml`
+
+## Lisans
+
+Bu repo `LICENSE` dosyasındaki lisans koşullarına tabidir.
