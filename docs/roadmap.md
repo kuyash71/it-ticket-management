@@ -9,7 +9,7 @@ Kural:
 
 ## Tamamlanma Özeti
 
-- [ ] Sprint 0 - Proje Sağlamlaştırma (5%)
+- [x] Sprint 0 - Proje Sağlamlaştırma (5%)
 - [ ] Sprint 1 - Domain Temelleri (10%)
 - [ ] Sprint 2 - Ticket Yaşam Döngüsü (10%)
 - [ ] Sprint 3 - RBAC ve Kimlik Katmanı (8%)
@@ -30,14 +30,14 @@ Hedef: Geliştirme temelini stabil hale getirmek.
 
 Checklist:
 
-- [ ] Monorepo workspace komutlarının CI ve localde stabil çalışması
+- [x] Monorepo workspace komutlarının CI ve localde stabil çalışması
 - [x] `pnpm-lock.yaml` güncel ve repoda commitlenmiş olması
 - [x] `.gitignore`, `.gitattributes`, `.editorconfig` doğrulanması
 - [x] README ve docs indeksinin güncel olması
 
 DoD:
 
-- [ ] `pnpm build`, `pnpm test`, `pnpm lint` komutları pipeline’da çalışıyor
+- [x] `pnpm build`, `pnpm test`, `pnpm lint` komutları pipeline’da çalışıyor
 - [x] Dokümantasyon giriş sayfaları eksiksiz
 
 ## Sprint 1 - Domain Temelleri (10%)
