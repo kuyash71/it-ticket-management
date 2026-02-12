@@ -43,3 +43,6 @@ test-results/
 
 # Optional local docs conversion
 *.pdf.txt
+
+# Docs temp outputs
+docs/tmp/

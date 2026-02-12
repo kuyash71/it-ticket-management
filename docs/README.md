@@ -6,8 +6,10 @@ Bu klasör proje için yaşayan dokümantasyon merkezidir.
 
 1. `reports/ITSM Analiz Dokümanı.pdf`
 2. `reports/tasarım.md`
-3. `architecture/mvp-traceability.md`
-4. `checklist.md`
+3. `architecture/README.md`
+4. `api-overview/README.md`
+5. `architecture/mvp-traceability.md`
+6. `checklist.md`
 
 ## İçerik Haritası
 
@@ -15,7 +17,9 @@ Bu klasör proje için yaşayan dokümantasyon merkezidir.
   - Kaynak analiz ve tasarım dokümanları
   - İş kuralı kapsamı bu dosyalarla sınırlandırılır
 - `architecture/`
-  - Analiz/tasarım beklentilerinin kod iskeletine izlenebilir eşlemesi
+  - Sistem mimarisi, domain modeli, akış/state machine, RBAC, failure mode ve NFR dokümanları
+- `api-overview/`
+  - Endpoint grupları, response sözleşmeleri ve hata davranışları özeti
 - `checklist.md`
   - Sprint bazlı teslim planı
   - 100% tamamlanma hedefi ve Definition of Done maddeleri
