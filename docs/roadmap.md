@@ -46,7 +46,7 @@ Hedef: Ticket aggregate ve temel iş kurallarını tamamlamak.
 
 Checklist:
 
-- [ ] Ticket entity ve value object sınırlarının netleştirilmesi
+- [x] Ticket entity ve value object sınırlarının netleştirilmesi
 - [x] Incident/ServiceRequest ayrımının domain seviyesinde doğrulanması
 - [x] Priority matrisi (Urgency x Impact) testleri
 - [x] Status transition policy testlerinin genişletilmesi

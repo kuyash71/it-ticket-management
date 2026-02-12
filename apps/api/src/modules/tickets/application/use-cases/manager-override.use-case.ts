@@ -15,22 +15,9 @@ export class ManagerOverrideUseCase {
       throw new Error("UNAUTHORIZED_ACTION");
     }
 
-    if (
-      ticket.type === "SERVICE_REQUEST" &&
-      command.forcedStatus === "RESOLVED" &&
-      ticket.approvalState === "PENDING"
-    ) {
-      throw new Error("APPROVAL_REQUIRED");
-    }
+    ticket.managerOverride(command.forcedStatus, new Date());
 
-    const updated: Ticket = {
-      ...ticket,
-      status: command.forcedStatus,
-      updatedAt: new Date(),
-      version: ticket.version + 1
-    };
-
-    await this.repository.save(updated);
-    return updated;
+    await this.repository.save(ticket);
+    return ticket;
   }
 }

@@ -10,21 +10,14 @@ export class ReopenTicketUseCase {
       throw new Error("TICKET_NOT_FOUND");
     }
 
-    if (ticket.status !== "RESOLVED") {
+    if (ticket.getStatus() !== "RESOLVED") {
       throw new Error("INVALID_STATUS_TRANSITION");
     }
 
     if (actorRole === "CUSTOMER" || actorRole === "MANAGER") {
-      const updated: Ticket = {
-        ...ticket,
-        status: "IN_PROGRESS",
-        slaClockState: "RUNNING",
-        updatedAt: new Date(),
-        version: ticket.version + 1
-      };
-
-      await this.repository.save(updated);
-      return updated;
+      ticket.changeStatus("IN_PROGRESS", actorRole, new Date());
+      await this.repository.save(ticket);
+      return ticket;
     }
 
     throw new Error("UNAUTHORIZED_ACTION");

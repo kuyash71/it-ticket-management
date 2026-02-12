@@ -15,14 +15,9 @@ export class ReassignTicketUseCase {
       throw new Error("UNAUTHORIZED_ACTION");
     }
 
-    const updated: Ticket = {
-      ...ticket,
-      assigneeId: command.assigneeId,
-      updatedAt: new Date(),
-      version: ticket.version + 1
-    };
+    ticket.reassign(command.assigneeId, new Date());
 
-    await this.repository.save(updated);
-    return updated;
+    await this.repository.save(ticket);
+    return ticket;
   }
 }

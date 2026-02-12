@@ -1,5 +1,3 @@
-import { ensureValidTransition } from "../../domain/policies/status-transition.policy";
-import { nextSlaClockState } from "../../domain/services/sla-escalation.service";
 import type { ChangeStatusCommand } from "../commands/change-status.command";
 import type { Ticket } from "../../domain/models/ticket";
 import type { TicketRepository } from "../../infrastructure/repositories/ticket.repository";
@@ -13,28 +11,9 @@ export class ChangeStatusUseCase {
       throw new Error("TICKET_NOT_FOUND");
     }
 
-    ensureValidTransition(ticket.status, command.nextStatus, command.actorRole);
+    ticket.changeStatus(command.nextStatus, command.actorRole, new Date());
 
-    if (
-      ticket.type === "SERVICE_REQUEST" &&
-      command.nextStatus === "RESOLVED" &&
-      ticket.approvalState === "PENDING"
-    ) {
-      throw new Error("APPROVAL_REQUIRED");
-    }
-
-    const now = new Date();
-    const updated: Ticket = {
-      ...ticket,
-      status: command.nextStatus,
-      slaClockState: nextSlaClockState(command.nextStatus, ticket.slaClockState),
-      updatedAt: now,
-      version: ticket.version + 1,
-      resolvedAt: command.nextStatus === "RESOLVED" ? now : ticket.resolvedAt,
-      closedAt: command.nextStatus === "CLOSED" ? now : ticket.closedAt
-    };
-
-    await this.repository.save(updated);
-    return updated;
+    await this.repository.save(ticket);
+    return ticket;
   }
 }

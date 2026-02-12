@@ -72,13 +72,13 @@ const managerOverride = new ManagerOverrideUseCase(repository);
 export const ticketsRoutes: FastifyPluginAsync = async (app) => {
   app.get("/tickets", async () => {
     const tickets = await repository.list();
-    return tickets;
+    return tickets.map((ticket) => ticket.toPrimitives());
   });
 
   app.post("/tickets", async (request, reply) => {
     const payload = createSchema.parse(request.body);
     const created = await createTicket.execute(payload);
-    return reply.code(201).send(created);
+    return reply.code(201).send(created.toPrimitives());
   });
 
   app.get("/tickets/:ticketId", async (request, reply) => {
@@ -112,7 +112,7 @@ export const ticketsRoutes: FastifyPluginAsync = async (app) => {
         nextStatus: payload.nextStatus,
         reason: payload.reason
       });
-      return updated;
+      return updated.toPrimitives();
     } catch (error) {
       const message = error instanceof Error ? error.message : "UNEXPECTED_ERROR";
 
@@ -157,7 +157,7 @@ export const ticketsRoutes: FastifyPluginAsync = async (app) => {
         impact: payload.impact,
         reason: payload.reason
       });
-      return updated;
+      return updated.toPrimitives();
     } catch (error) {
       const message = error instanceof Error ? error.message : "UNEXPECTED_ERROR";
       if (message === "TICKET_NOT_FOUND") {
@@ -185,7 +185,7 @@ export const ticketsRoutes: FastifyPluginAsync = async (app) => {
         assigneeId: payload.assigneeId,
         reason: payload.reason
       });
-      return updated;
+      return updated.toPrimitives();
     } catch (error) {
       const message = error instanceof Error ? error.message : "UNEXPECTED_ERROR";
       if (message === "TICKET_NOT_FOUND") {
@@ -193,6 +193,9 @@ export const ticketsRoutes: FastifyPluginAsync = async (app) => {
       }
       if (message === "UNAUTHORIZED_ACTION") {
         return reply.code(403).send({ errorCode: "UNAUTHORIZED_ACTION", message });
+      }
+      if (message === "APPROVAL_REQUIRED") {
+        return reply.code(409).send({ errorCode: "APPROVAL_REQUIRED", message });
       }
       return reply.code(500).send({ errorCode: "UNEXPECTED_ERROR", message });
     }
@@ -210,7 +213,7 @@ export const ticketsRoutes: FastifyPluginAsync = async (app) => {
         forcedStatus: payload.forcedStatus,
         reason: payload.reason
       });
-      return updated;
+      return updated.toPrimitives();
     } catch (error) {
       const message = error instanceof Error ? error.message : "UNEXPECTED_ERROR";
       if (message === "TICKET_NOT_FOUND") {
@@ -238,9 +241,9 @@ export const ticketsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return {
-      ticketId: ticket.id,
+      ticketId: ticket.getId(),
       role,
-      allowedActions: resolveAllowedActions(ticket.status, role)
+      allowedActions: resolveAllowedActions(ticket.getStatus(), role)
     };
   });
 };

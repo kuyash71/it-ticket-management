@@ -10,6 +10,7 @@ Bu doküman, kod yazımı sırasında analiz/tasarım dokümanları ile uyumu ko
 - Domain Layer:
   - İş kurallarını uygular
   - Invariant ihlallerini engeller
+  - Child entity erişimini aggregate sınırı içinde tutar
 - Infrastructure Layer:
   - DB, dosya depolama, harici servis adaptörlerini uygular
 
@@ -20,6 +21,7 @@ Bu doküman, kod yazımı sırasında analiz/tasarım dokümanları ile uyumu ko
 - Manager override işlemlerinde `reason` zorunludur
 - Priority değişimi audit kaydı üretir
 - Attachment boyutu 10 MB üstü reddedilir
+- `SLAClock` ve `ServiceRequestApproval` child entity'lerine aggregate dışından doğrudan erişilmez
 
 ## API Kontrat Kuralları
 

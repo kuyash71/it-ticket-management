@@ -11,6 +11,15 @@ Sorumluluklar:
 - Approval kapısı (Service Request için)
 - Assignment ve role-kuralı uyumu
 
+## Child Entity Sınırı
+
+`SLAClock` ve `ServiceRequestApproval`, `Ticket` aggregate içinde child entity olarak konumlandırılmıştır.
+
+Kural:
+- Child entity'ler aggregate dışından doğrudan kullanılmaz.
+- Dış katmanlar child entity state'ine yalnız aggregate getter/metodları üzerinden erişir.
+- State değişimleri sadece `Ticket` aggregate davranışları ile yapılır.
+
 ## Alt Türler
 
 - `INCIDENT`

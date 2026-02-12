@@ -1,6 +1,10 @@
 import type { SlaClockState } from "@itsm/contracts";
 
-export interface SlaClock {
+/**
+ * Snapshot type only.
+ * Child entity behavior is intentionally encapsulated inside Ticket aggregate.
+ */
+export interface SlaClockSnapshot {
   state: SlaClockState;
   startedAt?: Date;
   pausedAt?: Date;

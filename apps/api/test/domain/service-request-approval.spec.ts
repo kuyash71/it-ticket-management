@@ -21,7 +21,7 @@ describe("service request approval invariant", () => {
     });
 
     await changeStatus.execute({
-      ticketId: ticket.id,
+      ticketId: ticket.getId(),
       actorId: "agent-1",
       actorRole: "AGENT",
       nextStatus: "IN_PROGRESS"
@@ -29,7 +29,7 @@ describe("service request approval invariant", () => {
 
     await expect(
       changeStatus.execute({
-        ticketId: ticket.id,
+        ticketId: ticket.getId(),
         actorId: "agent-1",
         actorRole: "AGENT",
         nextStatus: "RESOLVED"

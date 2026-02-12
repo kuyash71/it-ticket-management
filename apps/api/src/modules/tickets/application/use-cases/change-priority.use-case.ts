@@ -1,4 +1,3 @@
-import { calculatePriority } from "../../domain/services/priority-matrix.service";
 import type { ChangePriorityCommand } from "../commands/change-priority.command";
 import type { Ticket } from "../../domain/models/ticket";
 import type { TicketRepository } from "../../infrastructure/repositories/ticket.repository";
@@ -16,16 +15,9 @@ export class ChangePriorityUseCase {
       throw new Error("UNAUTHORIZED_ACTION");
     }
 
-    const updated: Ticket = {
-      ...ticket,
-      urgency: command.urgency,
-      impact: command.impact,
-      priority: calculatePriority(command.urgency, command.impact),
-      version: ticket.version + 1,
-      updatedAt: new Date()
-    };
+    ticket.changePriority(command.urgency, command.impact, new Date());
 
-    await this.repository.save(updated);
-    return updated;
+    await this.repository.save(ticket);
+    return ticket;
   }
 }

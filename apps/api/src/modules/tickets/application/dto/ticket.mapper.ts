@@ -14,21 +14,21 @@ export const toTicketDetailDto = (
   role: "CUSTOMER" | "AGENT" | "MANAGER"
 ): TicketDetailDto => {
   return {
-    id: ticket.id,
-    type: ticket.type,
-    title: ticket.title,
-    description: ticket.description,
-    status: ticket.status,
-    priority: ticket.priority,
-    urgency: ticket.urgency,
-    impact: ticket.impact,
-    reporterId: ticket.reporterId,
-    assigneeId: ticket.assigneeId,
-    approvalState: ticket.approvalState,
-    slaRiskLevel: resolveSlaRiskLevel(mapElapsedToProgress(ticket.slaElapsedSeconds)),
-    allowedActions: resolveAllowedActions(ticket.status, role),
-    version: ticket.version,
-    createdAt: ticket.createdAt.toISOString(),
-    updatedAt: ticket.updatedAt.toISOString()
+    id: ticket.getId(),
+    type: ticket.getType(),
+    title: ticket.getTitle(),
+    description: ticket.getDescription(),
+    status: ticket.getStatus(),
+    priority: ticket.getPriority(),
+    urgency: ticket.getUrgency(),
+    impact: ticket.getImpact(),
+    reporterId: ticket.getReporterId(),
+    assigneeId: ticket.getAssigneeId(),
+    approvalState: ticket.getApprovalState(),
+    slaRiskLevel: resolveSlaRiskLevel(mapElapsedToProgress(ticket.getSlaElapsedSeconds())),
+    allowedActions: resolveAllowedActions(ticket.getStatus(), role),
+    version: ticket.getVersion(),
+    createdAt: ticket.getCreatedAt().toISOString(),
+    updatedAt: ticket.getUpdatedAt().toISOString()
   };
 };

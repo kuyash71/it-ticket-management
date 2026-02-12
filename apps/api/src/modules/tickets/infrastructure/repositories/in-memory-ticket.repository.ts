@@ -13,6 +13,6 @@ export class InMemoryTicketRepository implements TicketRepository {
   }
 
   async save(ticket: Ticket): Promise<void> {
-    this.storage.set(ticket.id, ticket);
+    this.storage.set(ticket.getId(), ticket);
   }
 }
