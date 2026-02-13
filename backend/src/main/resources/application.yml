@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/itsm
+    username: itsm
+    password: itsm
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  messages:
+    basename: i18n/messages
+    encoding: UTF-8
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/itsm
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4317
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+observability:
+  opensearch:
+    url: http://localhost:9200
+    index: itsm-logs
+
+logging:
+  config: classpath:log4j2-spring.xml

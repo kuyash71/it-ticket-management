@@ -1,125 +1,82 @@
 # IT Ticket Management
 
-IT Ticket Management, analiz ve tasarım dokümanlarında tanımlanan ITSM MVP kapsamını temel alan bir monorepo proje iskeletidir.
+Bu proje, kurumsal IT ticket yönetimi için aşağıdaki teknoloji seti ile sıfırdan kurulmuştur:
 
-Referans dokümanlar:
-- `docs/reports/ITSM Analiz Dokümanı.pdf`
-- `docs/reports/tasarım.md`
+- Backend: Spring Boot 3 (Java 21)
+- AuthN/AuthZ: Keycloak (OIDC/JWT)
+- Frontend: React + Vite + i18next
+- Database: PostgreSQL
+- Workflow Engine: jBPM
+- Log Transfer: Kafka
+- Log Index/Search: OpenSearch
+- Telemetry: OpenTelemetry (OTLP)
+- Runtime: Docker Compose
 
-## Hedeflenen MVP
-
-- Incident ve Service Request ayrımı
-- Kurallı ticket yaşam döngüsü ve status transition kontrolü
-- RBAC (Customer, Agent, Manager)
-- Urgency/Impact tabanlı önceliklendirme
-- SLA clock (start/pause/resume/stop) ve risk seviyeleri
-- Audit + Timeline + Attachment görünürlük ayrımı
-- Manager override (reason + audit zorunlu)
-- Servis kalitesi şikayet akışı
-
-## Kapsam Dışı (MVP)
-
-- Harici sistem entegrasyonları
-- Gelişmiş otomasyon ve AI karar mekanizmaları
-- Gelişmiş raporlama/projection optimizasyonu (Phase-2)
-- CMDB ve finansal süreçler
-
-## Repository Yapısı
+## Monorepo Yapısı
 
 ```text
-apps/
-  api/                    # Fastify + DDD katmanlı backend iskeleti
-  web/                    # React + Vite feature bazlı frontend iskeleti
-packages/
-  contracts/              # Ortak enum, DTO, event sözleşmeleri
-infra/
-  db/schema.sql           # MVP başlangıç şeması
-  openapi/openapi.yaml    # API kontrat taslağı
-  docker-compose.yml      # Postgres + MinIO
-
-docs/
-  README.md               # Dokümantasyon indeksi
-  checklist.md            # Sprint bazlı %100 tamamlanma planı
-  architecture/           # Mimari izlenebilirlik ve teknik notlar
-  reports/                # Kaynak analiz/tasarım dokümanları
+backend/                  # Spring Boot API
+frontend/                 # React uygulaması
+infra/                    # Docker Compose + Keycloak realm + OTel config
+docs/                     # Mimari ve proje dokümantasyonu
 ```
 
-## Gereksinimler
-
-- Node.js 22+
-- pnpm 10+
-- Docker (opsiyonel, local servisler için)
-
-## Hızlı Başlangıç
+## Hızlı Başlangıç (Docker Compose)
 
 ```bash
-pnpm install
-pnpm dev
+docker compose up --build
 ```
 
-Varsayılan adresler:
-- API: `http://localhost:3000`
-- Web: `http://localhost:5173`
+Servisler:
 
-## Komutlar
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Keycloak: `http://localhost:8081`
+- PostgreSQL: `localhost:5433`
+- Kafka: `localhost:9092`
+- OpenSearch: `http://localhost:9200`
+- OpenTelemetry Collector: `localhost:4317`, `localhost:4318`
 
-Root komutları:
+## Local Geliştirme
+
+### Backend
 
 ```bash
-pnpm dev
-pnpm build
-pnpm test
-pnpm lint
+cd backend
+mvn spring-boot:run
 ```
 
-Workspace bazlı örnekler:
+### Frontend
 
 ```bash
-pnpm --filter @itsm/api dev
-pnpm --filter @itsm/web dev
-pnpm --filter @itsm/contracts build
+cd frontend
+npm install
+npm run dev
 ```
 
-## API Özet Uçları
+## i18n
 
-- `GET /health`
-- `GET /tickets`
-- `POST /tickets`
-- `GET /tickets/:ticketId`
-- `POST /tickets/:ticketId/status`
-- `POST /tickets/:ticketId/priority`
-- `POST /tickets/:ticketId/reassign`
-- `POST /tickets/:ticketId/override`
-- `GET /tickets/:ticketId/allowed-actions?role=AGENT`
-- `GET /reporting/summary`
-- `POST /complaints`
+Frontend çoklu dil desteği i18next ile uygulanmıştır.
 
-Detaylar için: `infra/openapi/openapi.yaml`
+- Türkçe: `frontend/src/locales/tr/common.json`
+- İngilizce: `frontend/src/locales/en/common.json`
 
-## Kalite ve Kısıtlar
+## API Kısa Özeti
 
-- Maksimum sayfa boyutu: 50
-- JWT expiry hedefi: 15 dakika
-- Attachment boyut limiti: 10 MB
-- Audit retention hedefi: minimum 1 yıl
+- `GET /api/tickets`
+- `POST /api/tickets`
+- `GET /actuator/health`
 
-## Dokümantasyon
+Detaylar için: `docs/api-overview.md`
 
-- Dokümantasyon indeksi: `docs/README.md`
-- Sprint checklist: `docs/checklist.md`
-- Traceability: `docs/architecture/mvp-traceability.md`
+## Workflow, Logging ve Observability
 
-## CI
-
-GitHub Actions pipeline:
-
-1. Install (`pnpm install --frozen-lockfile`)
-2. Lint
-3. Test
-4. Build
-
-Workflow dosyası: `.github/workflows/ci.yml`
+- Ticket oluşturma sonrası jBPM process başlatılır.
+- Domain log olayları Kafka topic'ine aktarılır (`itsm.logs`).
+- Aynı olaylar OpenSearch index'ine yazılır (`itsm-logs`).
+- Uygulama trace verisi OTLP ile OpenTelemetry Collector'a gönderilir.
 
 ## Lisans
 
-Bu repo `LICENSE` dosyasındaki lisans koşullarına tabidir.
+Lisans metni: `LICENSE`

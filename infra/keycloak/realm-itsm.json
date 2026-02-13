@@ -1,0 +1,31 @@
+{
+  "realm": "itsm",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "customer" },
+      { "name": "agent" },
+      { "name": "manager" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "itsm-frontend",
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ]
+    },
+    {
+      "clientId": "itsm-backend",
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    }
+  ]
+}

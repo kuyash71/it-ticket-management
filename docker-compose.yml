@@ -43,7 +43,7 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     volumes:
-      - ./keycloak/realm-itsm.json:/opt/keycloak/data/import/realm-itsm.json
+      - ./infra/keycloak/realm-itsm.json:/opt/keycloak/data/import/realm-itsm.json
     ports:
       - "8081:8080"
 
@@ -52,7 +52,7 @@ services:
     container_name: itsm-opensearch
     environment:
       discovery.type: single-node
-      DISABLE_SECURITY_PLUGIN: true
+      DISABLE_SECURITY_PLUGIN: "true"
       OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
     ulimits:
       memlock:
@@ -66,14 +66,14 @@ services:
     container_name: itsm-otel-collector
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes:
-      - ./otel/collector-config.yaml:/etc/otelcol/config.yaml
+      - ./infra/otel/collector-config.yaml:/etc/otelcol/config.yaml
     ports:
       - "4317:4317"
       - "4318:4318"
 
   backend:
     build:
-      context: ../backend
+      context: ./backend
     container_name: itsm-backend
     depends_on:
       postgres:
@@ -100,7 +100,7 @@ services:
 
   frontend:
     build:
-      context: ../frontend
+      context: ./frontend
     container_name: itsm-frontend
     depends_on:
       backend:

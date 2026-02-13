@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools"
+             targetNamespace="http://www.jboss.org/drools">
+  <process id="itsm.ticket.lifecycle" name="Ticket Lifecycle" isExecutable="true" tns:packageName="processes">
+    <startEvent id="StartEvent_1" name="Ticket Created"/>
+    <sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="EndEvent_1"/>
+    <endEvent id="EndEvent_1" name="Workflow Initialized"/>
+  </process>
+</definitions>

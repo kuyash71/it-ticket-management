@@ -1,0 +1,14 @@
+{
+  "app.title": "IT Ticket Management",
+  "app.subtitle": "Spring Boot + Keycloak + React",
+  "auth.login": "Login",
+  "auth.logout": "Logout",
+  "ticket.list": "Tickets",
+  "ticket.create": "Create Ticket",
+  "ticket.title": "Title",
+  "ticket.description": "Description",
+  "ticket.type": "Type",
+  "ticket.empty": "No tickets yet.",
+  "lang.tr": "Turkish",
+  "lang.en": "English"
+}

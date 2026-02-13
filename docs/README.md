@@ -1,38 +1,26 @@
-# Dokümantasyon İndeksi
+# Dokümantasyon Merkezi
 
-Bu klasör proje için yaşayan dokümantasyon merkezidir.
+Bu klasör, Spring Boot + Keycloak + React tabanlı yeni mimarinin yaşayan dokümanlarını içerir.
 
 ## Okuma Sırası
 
-1. `reports/ITSM Analiz Dokümanı.pdf`
-2. `reports/tasarım.md`
-3. `architecture/README.md`
-4. `api-overview/README.md`
-5. `architecture/mvp-traceability.md`
-6. `checklist.md`
+1. `architecture/README.md`
+2. `architecture/system-architecture.md`
+3. `architecture/security-keycloak.md`
+4. `architecture/workflow-jbpm.md`
+5. `architecture/observability.md`
+6. `architecture/deployment-compose.md`
+7. `api-overview.md`
+8. `roadmap.md`
+9. `reports/tasarım.md`
 
-## İçerik Haritası
+## İçerik
 
-- `reports/`
-  - Kaynak analiz ve tasarım dokümanları
-  - İş kuralı kapsamı bu dosyalarla sınırlandırılır
-- `architecture/`
-  - Sistem mimarisi, domain modeli, akış/state machine, RBAC, failure mode ve NFR dokümanları
-- `api-overview/`
-  - Endpoint grupları, response sözleşmeleri ve hata davranışları özeti
-- `checklist.md`
-  - Sprint bazlı teslim planı
-  - 100% tamamlanma hedefi ve Definition of Done maddeleri
+- `architecture/`: Teknik mimari kırılımı
+- `api-overview.md`: API sözleşme özeti
+- `roadmap.md`: Sprint planı ve DoD takibi
+- `reports/`: Analiz ve tasarım kaynak dokümanları
 
-## Doküman Yönetim Kuralları
+## Kural
 
-- `reports/` altındaki dosyalar kaynak doküman kabul edilir; doğrudan değiştirilmez.
-- Yeni teknik kararlar önce `architecture/` altında yazılır, sonra koda uygulanır.
-- Sprint kapanışlarında `checklist.md` güncellenir.
-- Her sprintte en az bir doğrulama çıktısı üretilir: test raporu, API sözleşmesi güncellemesi, demo notu.
-
-## Terminoloji
-
-- `MVP`: Minimum Viable Product, temel iş değerini üreten minimum sürüm.
-- `Phase-2`: MVP doğrulandıktan sonra kapsam genişletme fazı.
-- `DoD`: Definition of Done, sprintin tamamlanma ölçütleri.
+Kodda yapılan her mimari değişiklik, ilgili `architecture/*` dosyasına yansıtılmalıdır.
