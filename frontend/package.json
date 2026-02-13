@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "npm run typecheck",
+    "test": "node -e \"console.log('No frontend tests yet')\"",
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview"
   },

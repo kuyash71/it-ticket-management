@@ -19,8 +19,8 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 - [x] Spring Boot backend iskeleti
 - [x] React frontend iskeleti
 - [x] Keycloak realm import ve temel client tanımları
-- [ ] Temiz klonda tek komutla lokal kalkış doğrulaması (`docker compose up --build`)
-- [ ] CI pipeline temel akışı (build + test + lint) aktif ve stabil
+- [x] Temiz klonda tek komutla lokal kalkış doğrulaması (`docker compose up --build`)
+- [x] CI pipeline temel akışı (build + test + lint) aktif ve stabil
 
 ## Sprint 1 - Domain Core ve Ticket Yaşam Döngüsü
 
