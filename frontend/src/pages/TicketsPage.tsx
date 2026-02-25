@@ -28,26 +28,47 @@ export const TicketsPage = () => {
   }, [token]);
 
   useEffect(() => {
+    if (!token) {
+      setTickets([]);
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchTickets = async () => {
-      const response = await http.get<Ticket[]>("/api/tickets");
-      setTickets(response.data);
+      try {
+        const response = await http.get<Ticket[]>("/api/tickets");
+        if (!cancelled) {
+          setTickets(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch tickets", error);
+      }
     };
 
     void fetchTickets();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const onCreate = async (event: FormEvent) => {
     event.preventDefault();
 
-    const response = await http.post<Ticket>("/api/tickets", {
-      type,
-      title,
-      description
-    });
+    try {
+      const response = await http.post<Ticket>("/api/tickets", {
+        type,
+        title,
+        description
+      });
 
-    setTickets((current) => [...current, response.data]);
-    setTitle("");
-    setDescription("");
+      setTickets((current) => [...current, response.data]);
+      setTitle("");
+      setDescription("");
+    } catch (error) {
+      console.error("Failed to create ticket", error);
+    }
   };
 
   return (

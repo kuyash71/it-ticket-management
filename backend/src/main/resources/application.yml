@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/itsm
+    url: jdbc:postgresql://localhost:5433/itsm
     username: itsm
     password: itsm
   jpa:
