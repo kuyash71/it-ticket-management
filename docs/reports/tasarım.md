@@ -726,7 +726,54 @@ PRJ --> REP
 
 ---
 
-# 15. Sonuç
+# 15. Kullanılan Teknolojiler
+
+## 15.1 Backend
+
+| Teknoloji | Versiyon | Alan | Kullanım Amacı |
+| --------- | -------- | ---- | -------------- |
+| Java | 21 | Dil | Backend uygulama dili |
+| Spring Boot | 3.3.5 | Framework | Web API, yapılandırma, uygulama iskeleti |
+| Spring Data JPA / Hibernate | (Boot ile gelir) | Veri erişimi | ORM, entity yönetimi, veritabanı işlemleri |
+| Spring Security | (Boot ile gelir) | Güvenlik | JWT doğrulama, RBAC yetki kontrolü |
+| Spring OAuth2 Resource Server | (Boot ile gelir) | Güvenlik | Keycloak JWT token doğrulama |
+| Spring Validation | (Boot ile gelir) | Doğrulama | Request payload validasyonu |
+| Spring Actuator | (Boot ile gelir) | Operasyon | Health check, metrik endpoint'leri |
+| Spring Kafka | (Boot ile gelir) | Mesajlaşma | Kafka topic'lerine event yayınlama |
+| PostgreSQL | 16 | Veritabanı | Ana ilişkisel veritabanı |
+| jBPM | 7.74.1 | İş Akışı | BPMN tabanlı ticket yaşam döngüsü yönetimi |
+| KIE API / KIE Internal | 7.74.1 | İş Akışı | jBPM runtime ve süreç motoru entegrasyonu |
+| Apache Kafka | 3.7.2 | Mesajlaşma | Olay akışı, log event iletimi |
+| Keycloak | 26.0 | Kimlik Yönetimi | Kullanıcı kimlik doğrulama, rol yönetimi, JWT üretimi |
+| OpenSearch Java Client | 2.14.0 | Arama / Loglama | Log kayıtlarının indekslenmesi ve sorgulanması |
+| OpenTelemetry (OTLP) | (Micrometer ile gelir) | Gözlemlenebilirlik | Distributed tracing, trace export |
+| Micrometer Tracing | (Boot ile gelir) | Gözlemlenebilirlik | OTel bridge üzerinden trace yönetimi |
+| Log4j2 | (Boot ile gelir) | Loglama | Yapılandırılabilir uygulama loglama |
+| Maven | — | Build Aracı | Bağımlılık yönetimi, build ve paketleme |
+
+## 15.2 Frontend
+
+| Teknoloji | Versiyon | Alan | Kullanım Amacı |
+| --------- | -------- | ---- | -------------- |
+| React | 18 | UI Framework | Bileşen tabanlı kullanıcı arayüzü |
+| TypeScript | 5 | Dil | Tip güvenli frontend geliştirme |
+| Vite | 7 | Build Aracı | Geliştirme sunucusu, hızlı build |
+| keycloak-js | 26.x | Kimlik Doğrulama | Frontend tarafında Keycloak SSO entegrasyonu |
+| i18next | 24.x | Çoklu Dil | Çeviri altyapısı (TR / EN) |
+| react-i18next | 15.x | Çoklu Dil | React bileşenlerinde i18n kullanımı |
+
+## 15.3 Altyapı ve Operasyon
+
+| Teknoloji | Versiyon | Alan | Kullanım Amacı |
+| --------- | -------- | ---- | -------------- |
+| Docker | — | Konteynerizasyon | Uygulama ve servis paketleme |
+| Docker Compose | — | Orkestrasyon | Tüm servis grubunun tek komutla ayağa kaldırılması |
+| OpenSearch | 2.17.1 | Arama / Loglama | Log indeksleme, gözlemlenebilirlik verisi depolama |
+| OpenTelemetry Collector | 0.111.0 | Gözlemlenebilirlik | Trace ve metrik toplama, yönlendirme |
+
+---
+
+# 16. Sonuç
 
 Bu doküman:
 
