@@ -2,7 +2,7 @@
 
 ## Yazılım Tasarım Dokümanı (SDD)
 
-> **Sürüm:** v0.8 — BASELINE (Analiz Uyumlu, Revize Edilmiş)  
+> **Sürüm:** v0.8.2 — BASELINE
 > **Doküman Tipi:** Yaşayan Tasarım Dokümanı  
 > **Amaç:** Analiz dokümanında tanımlanan tüm iş beklentilerinin **birebir teknik karşılığını** vermek  
 > **Referanslar:** ITIL v4, ServiceNow, Jira Service Management
