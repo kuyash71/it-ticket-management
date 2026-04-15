@@ -24,7 +24,7 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 
 ## Sprint 1 - Domain Core ve Ticket Yaşam Döngüsü
 
-- [ ] Ticket aggregate kurallarının netleştirilmesi (incident/service request ayrımı)
+- [x] Ticket aggregate kurallarının netleştirilmesi (incident/service request ayrımı)
 - [ ] Status transition policy kurallarının domain seviyesinde uygulanması
 - [ ] Priority matrix (impact/urgency -> priority) domain service olarak tamamlanması
 - [ ] SLA Clock modelinin aggregate child entity olarak tamamlanması

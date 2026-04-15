@@ -3,6 +3,8 @@ package com.itsm.ticket.ticket.service;
 import com.itsm.ticket.logging.KafkaLogProducer;
 import com.itsm.ticket.ticket.api.CreateTicketRequest;
 import com.itsm.ticket.ticket.domain.Ticket;
+import com.itsm.ticket.ticket.domain.IncidentTicket;
+import com.itsm.ticket.ticket.domain.ServiceRequestTicket;
 import com.itsm.ticket.ticket.repository.TicketRepository;
 import com.itsm.ticket.workflow.TicketWorkflowService;
 import org.springframework.stereotype.Service;
@@ -30,18 +32,21 @@ public class TicketService {
 
     @Transactional
     public Ticket create(CreateTicketRequest request) {
-        Ticket created = ticketRepository.save(new Ticket(request.type(), request.title(), request.description()));
+       Ticket created = switch (request.type()) {
+           case INCIDENT -> ticketRepository.save(new IncidentTicket(request.title(), request.description()));
+           case SERVICE_REQUEST -> ticketRepository.save(new ServiceRequestTicket(request.title(), request.description()));
+  };
 
         workflowService.startTicketLifecycle(Map.of(
                 "ticketId", created.getId().toString(),
-                "ticketType", created.getType().name(),
+                "ticketType", request.type().name(),
                 "status", created.getStatus().name()
         ));
 
         kafkaLogProducer.publish("TICKET_CREATED", Map.of(
                 "ticketId", created.getId().toString(),
                 "title", created.getTitle(),
-                "type", created.getType().name()
+                "type", request.type().name()
         ));
 
         return created;

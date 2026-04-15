@@ -1,28 +1,23 @@
 package com.itsm.ticket.ticket.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "tickets")
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(
+    name="TicketType",
+    discriminatorType = DiscriminatorType.STRING
+)
+
 public class Ticket {
 
     @Id
     @Column(nullable = false, updatable = false)
     private UUID id;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private TicketType type;
 
     @Column(nullable = false)
     private String title;
@@ -48,9 +43,8 @@ public class Ticket {
         // JPA
     }
 
-    public Ticket(TicketType type, String title, String description) {
+    public Ticket(String title, String description) {
         this.id = UUID.randomUUID();
-        this.type = type;
         this.title = title;
         this.description = description;
         this.status = TicketStatus.NEW;
@@ -71,10 +65,6 @@ public class Ticket {
 
     public UUID getId() {
         return id;
-    }
-
-    public TicketType getType() {
-        return type;
     }
 
     public String getTitle() {
