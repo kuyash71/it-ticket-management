@@ -6,6 +6,7 @@ import com.itsm.ticket.ticket.domain.*;
 import com.itsm.ticket.ticket.domain.enums.TicketRole;
 import com.itsm.ticket.ticket.domain.enums.TicketStatus;
 import com.itsm.ticket.ticket.domain.policy.TicketStatusTransition;
+import com.itsm.ticket.ticket.exception.TicketNotFoundException;
 import com.itsm.ticket.ticket.repository.TicketRepository;
 import com.itsm.ticket.workflow.TicketWorkflowService;
 import org.springframework.stereotype.Service;
@@ -56,7 +57,7 @@ public class TicketService {
     @Transactional
     public Ticket changeStatus(UUID ticketId, TicketStatus target, TicketRole actor) {
         Ticket ticket = ticketRepository.findById(ticketId)
-            .orElseThrow(() -> new RuntimeException("Ticket Not Found " + ticketId));
+            .orElseThrow(() -> new TicketNotFoundException(ticketId));
         ticket.transitionTo(target,actor,new TicketStatusTransition());
         return ticketRepository.save(ticket);
     }

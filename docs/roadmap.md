@@ -30,8 +30,8 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 - [x] SLA Clock modelinin aggregate child entity olarak tamamlanması
 - [x] ServiceRequestApproval modelinin aggregate child entity olarak tamamlanması
 - [x] Concurrency için optimistic locking/version alanı eklenmesi
-- [ ] Domain policy testlerinin yazılması
-- [ ] API hata modelinin (validation, conflict, unauthorized) standardize edilmesi
+- [x] Domain policy testlerinin yazılması
+- [x] API hata modelinin (validation, conflict, unauthorized) standardize edilmesi
 
 ## Sprint 2 - Workflow ve Süreç Otomasyonu (jBPM)
 
