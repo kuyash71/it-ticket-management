@@ -1,4 +1,4 @@
-package com.itsm.ticket.ticket.domain;
+package com.itsm.ticket.ticket.domain.enums;
 
 public enum TicketPriority {
     LOW,

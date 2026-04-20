@@ -25,11 +25,11 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 ## Sprint 1 - Domain Core ve Ticket Yaşam Döngüsü
 
 - [x] Ticket aggregate kurallarının netleştirilmesi (incident/service request ayrımı)
-- [ ] Status transition policy kurallarının domain seviyesinde uygulanması
-- [ ] Priority matrix (impact/urgency -> priority) domain service olarak tamamlanması
-- [ ] SLA Clock modelinin aggregate child entity olarak tamamlanması
-- [ ] ServiceRequestApproval modelinin aggregate child entity olarak tamamlanması
-- [ ] Concurrency için optimistic locking/version alanı eklenmesi
+- [x] Status transition policy kurallarının domain seviyesinde uygulanması
+- [x] Priority matrix (impact/urgency -> priority) domain service olarak tamamlanması
+- [x] SLA Clock modelinin aggregate child entity olarak tamamlanması
+- [x] ServiceRequestApproval modelinin aggregate child entity olarak tamamlanması
+- [x] Concurrency için optimistic locking/version alanı eklenmesi
 - [ ] Domain policy testlerinin yazılması
 - [ ] API hata modelinin (validation, conflict, unauthorized) standardize edilmesi
 
@@ -55,7 +55,7 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 
 - [x] Keycloak JWT doğrulama
 - [x] Realm role -> Spring authority dönüşümü
-- [ ] Role bazlı yetki matrisi (customer/agent/manager/admin) endpoint bazında tamamlanması
+- [x] Role bazlı yetki matrisi (customer/agent/manager/admin) endpoint bazında tamamlanması
 - [ ] Frontend route ve aksiyon bazlı yetki kontrollerinin tamamlanması
 - [x] React i18n altyapısı (tr/en)
 - [x] Backend message bundle i18n altyapısı

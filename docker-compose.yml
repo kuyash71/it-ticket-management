@@ -92,6 +92,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: itsm
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/itsm
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/itsm/protocol/openid-connect/certs
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://otel-collector:4317
       OBSERVABILITY_OPENSEARCH_URL: http://opensearch:9200
       OBSERVABILITY_OPENSEARCH_INDEX: itsm-logs

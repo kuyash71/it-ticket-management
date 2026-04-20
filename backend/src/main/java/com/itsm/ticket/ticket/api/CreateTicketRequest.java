@@ -1,6 +1,6 @@
 package com.itsm.ticket.ticket.api;
 
-import com.itsm.ticket.ticket.domain.TicketType;
+import com.itsm.ticket.ticket.domain.enums.TicketType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

@@ -1,5 +1,9 @@
 package com.itsm.ticket.ticket.domain;
 
+import com.itsm.ticket.ticket.domain.enums.*;
+import com.itsm.ticket.ticket.domain.policy.TicketPriorityTransition;
+import com.itsm.ticket.ticket.domain.policy.PriorityTransitionPolicy;
+import com.itsm.ticket.ticket.domain.policy.StatusTransitionPolicy;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -33,11 +37,27 @@ public class Ticket {
     @Column(nullable = false)
     private TicketPriority priority;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TicketImpact impact;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TicketUrgency urgency;
+
     @Column(nullable = false)
     private Instant createdAt;
 
     @Column(nullable = false)
     private Instant updatedAt;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "sla_clock_id", referencedColumnName="id")
+    private SLAClock slaClock;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     protected Ticket() {
         // JPA
@@ -48,7 +68,10 @@ public class Ticket {
         this.title = title;
         this.description = description;
         this.status = TicketStatus.NEW;
-        this.priority = TicketPriority.MEDIUM;
+        this.urgency = TicketUrgency.LOW;
+        this.impact = TicketImpact.LOW;
+        applyPriority(new TicketPriorityTransition());
+        this.slaClock = new SLAClock();
     }
 
     @PrePersist
@@ -63,8 +86,46 @@ public class Ticket {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() {
-        return id;
+    public void applyPriority(PriorityTransitionPolicy policy) {
+        this.priority = policy.calculate(this.impact, this.urgency);
+    }
+
+    public void transitionTo(TicketStatus target, TicketRole actor, StatusTransitionPolicy policy) {
+        policy.validateTicket(this.status, target, actor);
+        switch (target) {
+            case IN_PROGRESS -> this.slaClock.resume();
+            case RESOLVED -> this.slaClock.stop();
+            case WAITING_FOR_CUSTOMER -> this.slaClock.pause();
+        }
+        this.status=target;
+    }
+
+    // SETTER - GETTER
+
+
+    protected void setStatus(TicketStatus status) {
+        this.status = status;
+    }
+
+    public SLAClock getSlaClock() {
+        return slaClock;
+    }
+
+    public UUID getId() {return id;}
+
+    public TicketImpact getImpact() {return impact;}
+
+    public void setImpact(TicketImpact impact) {
+        this.impact = impact;
+        applyPriority(new TicketPriorityTransition());
+
+    }
+
+    public TicketUrgency getUrgency() {return urgency;}
+
+    public void setUrgency(TicketUrgency urgency) {
+        this.urgency = urgency;
+        applyPriority(new TicketPriorityTransition());
     }
 
     public String getTitle() {

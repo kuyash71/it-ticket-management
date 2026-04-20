@@ -18,7 +18,7 @@ public record TicketResponse(
     public static TicketResponse from(Ticket ticket) {
         return new TicketResponse(
                 ticket.getId(),
-                ticket.getType().name(),
+                ticket.getClass().getSimpleName(),
                 ticket.getTitle(),
                 ticket.getDescription(),
                 ticket.getStatus().name(),

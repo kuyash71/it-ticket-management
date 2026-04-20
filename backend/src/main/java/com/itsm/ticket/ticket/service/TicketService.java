@@ -2,14 +2,15 @@ package com.itsm.ticket.ticket.service;
 
 import com.itsm.ticket.logging.KafkaLogProducer;
 import com.itsm.ticket.ticket.api.CreateTicketRequest;
-import com.itsm.ticket.ticket.domain.Ticket;
-import com.itsm.ticket.ticket.domain.IncidentTicket;
-import com.itsm.ticket.ticket.domain.ServiceRequestTicket;
+import com.itsm.ticket.ticket.domain.*;
+import com.itsm.ticket.ticket.domain.enums.TicketRole;
+import com.itsm.ticket.ticket.domain.enums.TicketStatus;
+import com.itsm.ticket.ticket.domain.policy.TicketStatusTransition;
 import com.itsm.ticket.ticket.repository.TicketRepository;
 import com.itsm.ticket.workflow.TicketWorkflowService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +51,14 @@ public class TicketService {
         ));
 
         return created;
+    }
+
+    @Transactional
+    public Ticket changeStatus(UUID ticketId, TicketStatus target, TicketRole actor) {
+        Ticket ticket = ticketRepository.findById(ticketId)
+            .orElseThrow(() -> new RuntimeException("Ticket Not Found " + ticketId));
+        ticket.transitionTo(target,actor,new TicketStatusTransition());
+        return ticketRepository.save(ticket);
     }
 
     @Transactional(readOnly = true)
