@@ -25,6 +25,8 @@ public class SLAClock {
     private Instant pausedAt;
     private Instant stoppedAt;
 
+    private long deadline;
+
     public SLAClock() {
         this.state = SLAClockState.RUNNING;
         this.startedAt = Instant.now();
@@ -50,6 +52,10 @@ public class SLAClock {
         }
         this.state = SLAClockState.STOPPED;
     }
+
+    public long getDeadline() { return deadline;}
+
+    public void setDeadline(long deadline) {this.deadline = deadline;}
 
     public Instant getStoppedAt() {
         return stoppedAt;

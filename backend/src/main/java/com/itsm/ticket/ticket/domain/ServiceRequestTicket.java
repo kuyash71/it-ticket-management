@@ -3,6 +3,7 @@ package com.itsm.ticket.ticket.domain;
 import com.itsm.ticket.ticket.domain.enums.ServiceRequstApprovalStatus;
 import com.itsm.ticket.ticket.domain.enums.TicketRole;
 import com.itsm.ticket.ticket.domain.enums.TicketStatus;
+import com.itsm.ticket.ticket.domain.enums.TicketType;
 import com.itsm.ticket.ticket.domain.policy.StatusTransitionPolicy;
 import jakarta.persistence.*;
 
@@ -17,7 +18,7 @@ public class ServiceRequestTicket extends Ticket {
     private ServiceRequestApproval approval;
 
     public ServiceRequestTicket(String title, String description) {
-        super(title,description);
+        super(title, description, TicketType.SERVICE_REQUEST);
         this.approval = new ServiceRequestApproval();
     }
 

@@ -35,11 +35,11 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 
 ## Sprint 2 - Workflow ve Süreç Otomasyonu (jBPM)
 
-- [ ] Incident ve Service Request için BPMN akışlarının ayrıştırılması
-- [ ] Service Request approval adımlarının BPMN'e taşınması
-- [ ] SLA escalation adımlarının süreçle entegre edilmesi
-- [ ] Timeout/yanıtsız müşteri edge-case akışlarının tanımlanması
-- [ ] Process instance izleme ve correlation stratejisinin netleştirilmesi
+- [x] Incident ve Service Request için BPMN akışlarının ayrıştırılması
+- [x] Service Request approval adımlarının BPMN'e taşınması
+- [x] SLA escalation adımlarının süreçle entegre edilmesi
+- [x] Timeout/yanıtsız müşteri edge-case akışlarının tanımlanması
+- [x] Process instance izleme ve correlation stratejisinin netleştirilmesi
 - [ ] Workflow integration testlerinin yazılması
 
 ## Sprint 3 - Uygulama Özellikleri (Timeline, Attachment, Notification)

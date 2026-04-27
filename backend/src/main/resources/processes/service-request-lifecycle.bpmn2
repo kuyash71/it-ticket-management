@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools"
+             targetNamespace="http://www.jboss.org/drools">
+  <process id="itsm.service-request.lifecycle" name="Service Request Lifecycle" isExecutable="true" tns:packageName="processes">
+    <startEvent id="StartEvent_NewTicket" name="Ticket Created"/>
+
+    <userTask id="Task_InProgress" name="In Progress"/>
+    <userTask id="Task_WaitingForCustomer" name="Waiting for Customer"/>
+    <userTask id="Task_Approval" name="Pending Approval"/>
+    <userTask id="Task_Resolved" name="Resolved"/>
+
+    <sequenceFlow id="Flow_AgentTookOwnership" sourceRef="StartEvent_NewTicket" targetRef="Task_InProgress"/>
+    <sequenceFlow id="Flow_ManagerOverride" sourceRef="StartEvent_NewTicket" targetRef="Task_InProgress"/>
+    <sequenceFlow id="Flow_MissingInfo" sourceRef="StartEvent_NewTicket" targetRef="Task_WaitingForCustomer"/>
+
+    <sequenceFlow id="Flow_AgentInfoRequest" sourceRef="Task_InProgress" targetRef="Task_WaitingForCustomer"/>
+    <sequenceFlow id="Flow_CustomerReplied" sourceRef="Task_WaitingForCustomer" targetRef="Task_InProgress"/>
+    <sequenceFlow id="Flow_WaitingTimeout" sourceRef="Task_WaitingForCustomer" targetRef="Timer_CustomerTimeout"/>
+
+    <intermediateCatchEvent id="Timer_CustomerTimeout" name="Customer Timeout">
+      <timerEventDefinition>
+        <timeDuration>PT48H</timeDuration>
+      </timerEventDefinition>
+    </intermediateCatchEvent>
+
+    <userTask id="Task_ManagerAutoCloseApproval" name="Manager Auto-Close Approval"/>
+
+    <sequenceFlow id="Flow_TimeoutToManager" sourceRef="Timer_CustomerTimeout" targetRef="Task_ManagerAutoCloseApproval"/>
+    <sequenceFlow id="Flow_ManagerApproved" sourceRef="Task_ManagerAutoCloseApproval" targetRef="EndEvent_ClosedTicket"/>
+    <sequenceFlow id="Flow_ManagerRejected" sourceRef="Task_ManagerAutoCloseApproval" targetRef="Task_WaitingForCustomer"/>
+
+    <sequenceFlow id="Flow_SolutionProvided" sourceRef="Task_InProgress" targetRef="Task_Approval"/>
+
+    <sequenceFlow id="Flow_ApprovalGranted" sourceRef="Task_Approval" targetRef="Task_Resolved"/>
+    <sequenceFlow id="Flow_ApprovalRejected" sourceRef="Task_Approval" targetRef="EndEvent_ClosedTicket"/>
+
+    <sequenceFlow id="Flow_CustomerConfirms" sourceRef="Task_Resolved" targetRef="EndEvent_ClosedTicket"/>
+    <sequenceFlow id="Flow_TicketTimeout" sourceRef="Task_Resolved" targetRef="EndEvent_ClosedTicket"/>
+
+    <endEvent id="EndEvent_ClosedTicket" name="Ticket Closed"/>
+  </process>
+</definitions>

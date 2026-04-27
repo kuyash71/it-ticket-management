@@ -1,6 +1,7 @@
 package com.itsm.ticket.ticket.domain;
 
 import com.itsm.ticket.ticket.domain.enums.*;
+import com.itsm.ticket.ticket.domain.policy.SLADeadlineService;
 import com.itsm.ticket.ticket.domain.policy.TicketPriorityTransition;
 import com.itsm.ticket.ticket.domain.policy.PriorityTransitionPolicy;
 import com.itsm.ticket.ticket.domain.policy.StatusTransitionPolicy;
@@ -59,19 +60,28 @@ public class Ticket {
     @Column(nullable = false)
     private Long version;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TicketType type;
+
+    @Column(nullable = false)
+    private Long processInstanceId;
+
     protected Ticket() {
         // JPA
     }
 
-    public Ticket(String title, String description) {
+    public Ticket(String title, String description, TicketType type) {
         this.id = UUID.randomUUID();
         this.title = title;
         this.description = description;
         this.status = TicketStatus.NEW;
         this.urgency = TicketUrgency.LOW;
         this.impact = TicketImpact.LOW;
+        this.type = type;
         applyPriority(new TicketPriorityTransition());
         this.slaClock = new SLAClock();
+        this.slaClock.setDeadline(new SLADeadlineService().calculate(this.type, this.priority));
     }
 
     @PrePersist
@@ -106,6 +116,8 @@ public class Ticket {
     protected void setStatus(TicketStatus status) {
         this.status = status;
     }
+
+    public void setProcessInstanceId(Long processInstanceId) {this.processInstanceId = processInstanceId;}
 
     public SLAClock getSlaClock() {
         return slaClock;

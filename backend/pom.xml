@@ -17,7 +17,7 @@
     <description>IT Ticket Management Backend</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>17</java.version>
         <jbpm.version>7.74.1.Final</jbpm.version>
         <opensearch.version>2.14.0</opensearch.version>
     </properties>
@@ -138,6 +138,11 @@
             <groupId>org.jbpm</groupId>
             <artifactId>jbpm-bpmn2</artifactId>
             <version>${jbpm.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mvel</groupId>
+            <artifactId>mvel2</artifactId>
+            <version>2.4.14.Final</version>
         </dependency>
 
         <dependency>
