@@ -14,7 +14,7 @@
 - Spring Security + OAuth2 Resource Server: JWT doğrulama
 - Spring Data JPA: Repository ve ORM
 - PostgreSQL: Ana veri deposu
-- jBPM: İş akışı yürütme
+- Kogito (Apache KIE): BPMN tabanlı iş akışı yürütme
 - Spring Kafka: Log event yayınlama
 - Log4j2: Uygulama loglama
 
@@ -22,6 +22,6 @@
 
 - `POST /api/tickets` çağrısı
 - Ticket persist edilir
-- jBPM process başlatılır (`itsm.ticket.lifecycle`)
+- Kogito process service üzerinden BPMN process başlatılır
 - Kafka log event yayınlanır
 - OpenSearch'e event indekslenir

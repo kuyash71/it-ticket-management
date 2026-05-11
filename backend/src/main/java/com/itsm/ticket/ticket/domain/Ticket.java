@@ -65,7 +65,7 @@ public class Ticket {
     private TicketType type;
 
     @Column(nullable = false)
-    private Long processInstanceId;
+    private String processInstanceId;
 
     protected Ticket() {
         // JPA
@@ -117,7 +117,7 @@ public class Ticket {
         this.status = status;
     }
 
-    public void setProcessInstanceId(Long processInstanceId) {this.processInstanceId = processInstanceId;}
+    public void setProcessInstanceId(String processInstanceId) {this.processInstanceId = processInstanceId;}
 
     public SLAClock getSlaClock() {
         return slaClock;

@@ -741,8 +741,8 @@ PRJ --> REP
 | Spring Actuator               | (Boot ile gelir)       | Operasyon          | Health check, metrik endpoint'leri                    |
 | Spring Kafka                  | (Boot ile gelir)       | Mesajlaşma         | Kafka topic'lerine event yayınlama                    |
 | PostgreSQL                    | 16                     | Veritabanı         | Ana ilişkisel veritabanı                              |
-| jBPM                          | 7.74.1                 | İş Akışı           | BPMN tabanlı ticket yaşam döngüsü yönetimi            |
-| KIE API / KIE Internal        | 7.74.1                 | İş Akışı           | jBPM runtime ve süreç motoru entegrasyonu             |
+| Kogito (Apache KIE)           | 10.x                   | İş Akışı           | BPMN tabanlı ticket yaşam döngüsü yönetimi            |
+| kogito-spring-boot-starter    | 10.x                   | İş Akışı           | Kogito Spring Boot entegrasyon starter'ı              |
 | Apache Kafka                  | 3.7.2                  | Mesajlaşma         | Olay akışı, log event iletimi                         |
 | Keycloak                      | 26.0                   | Kimlik Yönetimi    | Kullanıcı kimlik doğrulama, rol yönetimi, JWT üretimi |
 | OpenSearch Java Client        | 2.14.0                 | Arama / Loglama    | Log kayıtlarının indekslenmesi ve sorgulanması        |

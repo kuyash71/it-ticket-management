@@ -18,9 +18,21 @@
 
     <properties>
         <java.version>17</java.version>
-        <jbpm.version>7.74.1.Final</jbpm.version>
         <opensearch.version>2.14.0</opensearch.version>
+        <kogito.version>10.1.0</kogito.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.kie.kogito</groupId>
+                <artifactId>kogito-spring-boot-bom</artifactId>
+                <version>${kogito.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -120,29 +132,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.kie</groupId>
-            <artifactId>kie-api</artifactId>
-            <version>${jbpm.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.kie</groupId>
-            <artifactId>kie-internal</artifactId>
-            <version>${jbpm.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.jbpm</groupId>
-            <artifactId>jbpm-flow</artifactId>
-            <version>${jbpm.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jbpm</groupId>
-            <artifactId>jbpm-bpmn2</artifactId>
-            <version>${jbpm.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.mvel</groupId>
-            <artifactId>mvel2</artifactId>
-            <version>2.4.14.Final</version>
+            <artifactId>jbpm-spring-boot-starter</artifactId>
         </dependency>
 
         <dependency>
@@ -163,6 +154,20 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.kie.kogito</groupId>
+                <artifactId>kogito-maven-plugin</artifactId>
+                <version>${kogito.version}</version>
+                <executions>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>generateModel</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
 </project>

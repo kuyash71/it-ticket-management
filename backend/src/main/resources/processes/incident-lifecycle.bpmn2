@@ -1,41 +1,75 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
-             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
-             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
-             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:tns="http://www.jboss.org/drools"
              targetNamespace="http://www.jboss.org/drools">
   <process id="itsm.incident.lifecycle" name="Incident Ticket Lifecycle" isExecutable="true" tns:packageName="processes">
+
+    <!-- Process variable: ticketStatus (String) drives gateway routing -->
+    <property id="ticketStatus" itemSubjectRef="tns:ticketStatus"/>
+
     <startEvent id="StartEvent_NewTicket" name="Ticket Created"/>
+    <endEvent   id="EndEvent_Closed"      name="Ticket Closed"/>
 
-    <userTask id="Task_InProgress" name="In Progress"/>
+    <!-- Gateways -->
+    <exclusiveGateway id="GW_InitialSplit"    name="Initial Split"          gatewayDirection="Diverging"  default="f_AgentOwnership"/>
+    <exclusiveGateway id="GW_JoinInProgress"  name="Join InProgress"        gatewayDirection="Converging"/>
+    <exclusiveGateway id="GW_SplitInProgress" name="Split InProgress"       gatewayDirection="Diverging"  default="f_SolutionProvided"/>
+    <exclusiveGateway id="GW_JoinWaiting"     name="Join Waiting"           gatewayDirection="Converging"/>
+    <exclusiveGateway id="GW_SplitWaiting"    name="Split Waiting"          gatewayDirection="Diverging"  default="f_CustomerReplied"/>
+    <exclusiveGateway id="GW_SplitManager"    name="Split Manager Decision" gatewayDirection="Diverging"  default="f_ManagerApproved"/>
+    <exclusiveGateway id="GW_JoinEnd"         name="Join End"               gatewayDirection="Converging"/>
+
+    <!-- Tasks -->
+    <userTask id="Task_InProgress"         name="In Progress"/>
     <userTask id="Task_WaitingForCustomer" name="Waiting for Customer"/>
-    <userTask id="Task_Resolved" name="Resolved"/>
-
-    <sequenceFlow id="Flow_ManagerOverride" sourceRef="StartEvent_NewTicket" targetRef="Task_InProgress"/>
-    <sequenceFlow id="Flow_AgentTookOwnership" sourceRef="StartEvent_NewTicket" targetRef="Task_InProgress"/>
-    <sequenceFlow id="Flow_MissingInfo" sourceRef="StartEvent_NewTicket" targetRef="Task_WaitingForCustomer"/>
-
-    <sequenceFlow id="Flow_AgentInfoRequest" sourceRef="Task_InProgress" targetRef="Task_WaitingForCustomer"/>
-    <sequenceFlow id="Flow_CustomerReplied" sourceRef="Task_WaitingForCustomer" targetRef="Task_InProgress"/>
-    <sequenceFlow id="Flow_WaitingTimeout" sourceRef="Task_WaitingForCustomer" targetRef="Timer_CustomerTimeout"/>
+    <userTask id="Task_Resolved"           name="Resolved"/>
+    <userTask id="Task_ManagerAutoClose"   name="Manager Auto-Close Approval"/>
 
     <intermediateCatchEvent id="Timer_CustomerTimeout" name="Customer Timeout">
-      <timerEventDefinition>
-        <timeDuration>PT48H</timeDuration>
-      </timerEventDefinition>
+      <timerEventDefinition><timeDuration>PT48H</timeDuration></timerEventDefinition>
     </intermediateCatchEvent>
 
-    <userTask id="Task_ManagerAutoCloseApproval" name="Manager Auto-Close Approval"/>
+    <!-- Start → Initial Split -->
+    <sequenceFlow id="f_Start"           sourceRef="StartEvent_NewTicket" targetRef="GW_InitialSplit"/>
 
-    <sequenceFlow id="Flow_TimeoutToManager" sourceRef="Timer_CustomerTimeout" targetRef="Task_ManagerAutoCloseApproval"/>
-    <sequenceFlow id="Flow_ManagerApproved" sourceRef="Task_ManagerAutoCloseApproval" targetRef="EndEvent_ClosedTicket"/>
-    <sequenceFlow id="Flow_ManagerRejected" sourceRef="Task_ManagerAutoCloseApproval" targetRef="Task_WaitingForCustomer"/>
+    <!-- Initial Split → join gateways (default: InProgress) -->
+    <sequenceFlow id="f_AgentOwnership"  sourceRef="GW_InitialSplit"     targetRef="GW_JoinInProgress"/>
+    <sequenceFlow id="f_MissingInfo"     sourceRef="GW_InitialSplit"     targetRef="GW_JoinWaiting">
+      <conditionExpression xsi:type="tFormalExpression">return "WAITING_FOR_CUSTOMER".equals(ticketStatus);</conditionExpression>
+    </sequenceFlow>
 
-    <sequenceFlow id="Flow_SolutionProvided" sourceRef="Task_InProgress" targetRef="Task_Resolved"/>
-    <sequenceFlow id="Flow_CustomerConfirms" sourceRef="Task_Resolved" targetRef="EndEvent_ClosedTicket"/>
-    <sequenceFlow id="Flow_TicketTimeout" sourceRef="Task_Resolved" targetRef="EndEvent_ClosedTicket"/>
+    <!-- Join InProgress → Task -->
+    <sequenceFlow id="f_IntoInProgress"  sourceRef="GW_JoinInProgress"  targetRef="Task_InProgress"/>
 
-    <endEvent id="EndEvent_ClosedTicket" name="Ticket Closed"/>
+    <!-- Task InProgress → Split (default: Resolved) -->
+    <sequenceFlow id="f_InProgressSplit" sourceRef="Task_InProgress"    targetRef="GW_SplitInProgress"/>
+    <sequenceFlow id="f_AgentInfoReq"    sourceRef="GW_SplitInProgress" targetRef="GW_JoinWaiting">
+      <conditionExpression xsi:type="tFormalExpression">return "WAITING_FOR_CUSTOMER".equals(ticketStatus);</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_SolutionProvided" sourceRef="GW_SplitInProgress" targetRef="Task_Resolved"/>
+
+    <!-- Join Waiting → Task -->
+    <sequenceFlow id="f_IntoWaiting"     sourceRef="GW_JoinWaiting"     targetRef="Task_WaitingForCustomer"/>
+
+    <!-- Task Waiting → Split (default: CustomerReplied) -->
+    <sequenceFlow id="f_WaitingSplit"    sourceRef="Task_WaitingForCustomer" targetRef="GW_SplitWaiting"/>
+    <sequenceFlow id="f_CustomerReplied" sourceRef="GW_SplitWaiting"    targetRef="GW_JoinInProgress"/>
+    <sequenceFlow id="f_WaitingTimeout"  sourceRef="GW_SplitWaiting"    targetRef="Timer_CustomerTimeout">
+      <conditionExpression xsi:type="tFormalExpression">return "TIMEOUT".equals(ticketStatus);</conditionExpression>
+    </sequenceFlow>
+
+    <!-- Timer → Manager -->
+    <sequenceFlow id="f_ToManager"       sourceRef="Timer_CustomerTimeout"  targetRef="Task_ManagerAutoClose"/>
+    <sequenceFlow id="f_ManagerSplit"    sourceRef="Task_ManagerAutoClose"  targetRef="GW_SplitManager"/>
+    <sequenceFlow id="f_ManagerApproved" sourceRef="GW_SplitManager"        targetRef="GW_JoinEnd"/>
+    <sequenceFlow id="f_ManagerRejected" sourceRef="GW_SplitManager"        targetRef="GW_JoinWaiting">
+      <conditionExpression xsi:type="tFormalExpression">return "WAITING_FOR_CUSTOMER".equals(ticketStatus);</conditionExpression>
+    </sequenceFlow>
+
+    <!-- Resolved → End -->
+    <sequenceFlow id="f_CustomerConfirms" sourceRef="Task_Resolved"    targetRef="GW_JoinEnd"/>
+    <sequenceFlow id="f_JoinEnd"          sourceRef="GW_JoinEnd"       targetRef="EndEvent_Closed"/>
+
   </process>
 </definitions>

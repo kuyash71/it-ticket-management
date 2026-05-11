@@ -1,19 +1,3 @@
-# Workflow Architecture (jBPM)
-
-## Amaç
-
-Ticket yaşam döngüsü davranışlarını workflow engine üzerinden standardize etmek.
-
-## Mevcut Uygulama
-
-- Process ID: `itsm.ticket.lifecycle`
-- Kaynak dosya: `backend/src/main/resources/processes/ticket-lifecycle.bpmn2`
-- Session: `itsm-ticket-session` (`kmodule.xml`)
-
-## Tetikleme
-
-`TicketService#create` sonrasında process start edilir.
-
-## Genişleme
-
-İlerleyen sprintlerde status transition, approval ve escalation adımları BPMN içine detaylandırılacaktır.
+> **Bu dosya kullanım dışıdır.**
+> Workflow mimarisi `workflow-kogito.md` dosyasına taşınmıştır.
+> jBPM 7.74.1.Final, Java 17 ile uyumsuzluk nedeniyle Kogito 10.x (Apache KIE) ile değiştirilmiştir.

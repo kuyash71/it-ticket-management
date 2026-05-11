@@ -38,11 +38,11 @@ public class TicketService {
            case INCIDENT -> ticketRepository.save(new IncidentTicket(request.title(), request.description()));
            case SERVICE_REQUEST -> ticketRepository.save(new ServiceRequestTicket(request.title(), request.description()));
   };
-        long processInstanceId =
+        String processInstanceId =
         workflowService.startTicketLifecycle(Map.of(
                 "ticketId", created.getId().toString(),
                 "ticketType", request.type().name(),
-                "status", created.getStatus().name()
+                "ticketStatus", created.getStatus().name()
         ));
         created.setProcessInstanceId(processInstanceId);
         ticketRepository.save(created);

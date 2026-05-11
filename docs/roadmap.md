@@ -1,7 +1,7 @@
 # Roadmap
 
 Bu roadmap, tamamlandığında projenin MVP hedefini bitmiş ve yayınlanabilir hale getirir.
-Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenTelemetry, Docker Compose.
+Kapsam: Spring Boot, Keycloak, React, PostgreSQL, Kogito (Apache KIE), Kafka, OpenSearch, OpenTelemetry, Docker Compose.
 
 ## Proje Tamamlanma Kriteri (Release Gate)
 
@@ -33,14 +33,14 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, jBPM, Kafka, OpenSearch, OpenT
 - [x] Domain policy testlerinin yazılması
 - [x] API hata modelinin (validation, conflict, unauthorized) standardize edilmesi
 
-## Sprint 2 - Workflow ve Süreç Otomasyonu (jBPM)
+## Sprint 2 - Workflow ve Süreç Otomasyonu (Kogito)
 
 - [x] Incident ve Service Request için BPMN akışlarının ayrıştırılması
 - [x] Service Request approval adımlarının BPMN'e taşınması
 - [x] SLA escalation adımlarının süreçle entegre edilmesi
 - [x] Timeout/yanıtsız müşteri edge-case akışlarının tanımlanması
 - [x] Process instance izleme ve correlation stratejisinin netleştirilmesi
-- [ ] Workflow integration testlerinin yazılması
+- [x] Workflow integration testlerinin yazılması
 
 ## Sprint 3 - Uygulama Özellikleri (Timeline, Attachment, Notification)
 
