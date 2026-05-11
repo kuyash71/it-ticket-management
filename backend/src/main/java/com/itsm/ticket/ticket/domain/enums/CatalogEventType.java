@@ -1,0 +1,16 @@
+package com.itsm.ticket.ticket.domain.enums;
+
+public enum CatalogEventType {
+    TICKET_CREATED,
+    TICKET_UPDATED,
+    STATUS_CHANGED,
+    PRIORITY_CHANGED,
+    SLA_PAUSED,
+    SLA_RESUMED,
+    SLA_BREACH_RISK,
+    SLA_BREACHED,
+    MANAGER_OVERRIDE,
+    ATTACHMENT_ADDED,
+    COMMENT_ADDED,
+    WORKLOG_ADDED
+}

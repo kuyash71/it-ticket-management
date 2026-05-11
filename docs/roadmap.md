@@ -44,12 +44,12 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, Kogito (Apache KIE), Kafka, Op
 
 ## Sprint 3 - Uygulama Özellikleri (Timeline, Attachment, Notification)
 
-- [ ] Timeline olay modelinin (internal/external görünürlük) tamamlanması
-- [ ] Attachment policy (dosya tipi, boyut, güvenlik) kurallarının uygulanması
-- [ ] Audit trail kayıtlarının zorunlu eventler için tamamlanması
-- [ ] Notification kurallarının (MVP) backend tarafında uygulanması
-- [ ] Event catalog zorunlu event setinin API akışlarına bağlanması
-- [ ] Bu sprint kapsamı için API sözleşmelerinin (`docs/api-overview.md`) güncellenmesi
+- [x] Timeline olay modelinin (internal/external görünürlük) tamamlanması
+- [x] Attachment policy (dosya tipi, boyut, güvenlik) kurallarının uygulanması
+- [x] Audit trail kayıtlarının zorunlu eventler için tamamlanması
+- [x] Notification kurallarının (MVP) backend tarafında uygulanması
+- [x] Event catalog zorunlu event setinin API akışlarına bağlanması
+- [x] Bu sprint kapsamı için API sözleşmelerinin (`docs/api-overview.md`) güncellenmesi
 
 ## Sprint 4 - Security, RBAC ve i18n Tamamlama
 

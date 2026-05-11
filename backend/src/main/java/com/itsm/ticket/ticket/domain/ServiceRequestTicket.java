@@ -5,6 +5,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketRole;
 import com.itsm.ticket.ticket.domain.enums.TicketStatus;
 import com.itsm.ticket.ticket.domain.enums.TicketType;
 import com.itsm.ticket.ticket.domain.policy.StatusTransitionPolicy;
+import com.itsm.ticket.ticket.exception.IllegalStatusTransitionException;
 import jakarta.persistence.*;
 
 @Entity
@@ -30,7 +31,7 @@ public class ServiceRequestTicket extends Ticket {
             super.setStatus(target);
         }else {
             if(target == TicketStatus.RESOLVED) {
-                throw new IllegalStateException("TICKET ONAY DURUMU SEBEBİYLE REDDEDİLDİ: " + super.getStatus());
+                throw new IllegalStatusTransitionException(super.getStatus(), target, actor);
             }else {
                 switch (target) {
                     case IN_PROGRESS -> this.getSlaClock().resume();

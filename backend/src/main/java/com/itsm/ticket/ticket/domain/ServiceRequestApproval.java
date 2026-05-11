@@ -46,7 +46,4 @@ public class ServiceRequestApproval {
         return state;
     }
 
-    public void setState(ServiceRequstApprovalStatus state) {
-        this.state = state;
-    }
 }

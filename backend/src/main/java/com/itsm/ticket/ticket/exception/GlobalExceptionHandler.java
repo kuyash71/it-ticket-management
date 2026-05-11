@@ -11,32 +11,42 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-      @ExceptionHandler(IllegalStatusTransitionException.class)
-      @ResponseStatus(HttpStatus.CONFLICT)
-      public ErrorResponse handleIllegalTransition(IllegalStatusTransitionException ex) {
-          return new ErrorResponse("CONFLICT", ex.getMessage());
-      }
+    @ExceptionHandler(IllegalStatusTransitionException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleIllegalTransition(IllegalStatusTransitionException ex) {
+        return new ErrorResponse("CONFLICT", ex.getMessage());
+    }
 
-      @ExceptionHandler(TicketNotFoundException.class)
-      @ResponseStatus(HttpStatus.NOT_FOUND)
-      public ErrorResponse handleTicketNotFound(TicketNotFoundException ex) {
-          return new ErrorResponse("NOT FOUND", ex.getMessage());
-      }
+    @ExceptionHandler(TicketNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleTicketNotFound(TicketNotFoundException ex) {
+        return new ErrorResponse("NOT_FOUND", ex.getMessage());
+    }
 
-      @ExceptionHandler(UnauthorizedOperationException.class)
-      @ResponseStatus(HttpStatus.FORBIDDEN)
-      public ErrorResponse handleUnauthorizedAction(UnauthorizedOperationException ex) {
-          return new ErrorResponse("UNAUTHORIZED ACTION", ex.getMessage());
-      }
+    @ExceptionHandler(UnauthorizedOperationException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleUnauthorizedAction(UnauthorizedOperationException ex) {
+        return new ErrorResponse("UNAUTHORIZED_ACTION", ex.getMessage());
+    }
 
-      @ExceptionHandler(MethodArgumentNotValidException.class)
-      @ResponseStatus(HttpStatus.BAD_REQUEST)
-      public ErrorResponse handleValidation(MethodArgumentNotValidException ex) {
-      String message = ex.getBindingResult().getFieldErrors().stream()
-          .map(e -> e.getField() + ": " + e.getDefaultMessage())
-          .collect(Collectors.joining(", "));
-      return new ErrorResponse("VALIDATION_ERROR", message);
-  }
-  }
+    @ExceptionHandler(AttachmentPolicyViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleAttachmentPolicy(AttachmentPolicyViolationException ex) {
+        return new ErrorResponse("ATTACHMENT_POLICY_VIOLATION", ex.getMessage());
+    }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
+        return new ErrorResponse("BAD_REQUEST", ex.getMessage());
+    }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleValidation(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(e -> e.getField() + ": " + e.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+        return new ErrorResponse("VALIDATION_ERROR", message);
+    }
+}

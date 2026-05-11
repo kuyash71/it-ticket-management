@@ -25,7 +25,7 @@ public class TicketStatusTransition implements StatusTransitionPolicy {
         );
         transitions.put(
             new TransitionKey(TicketStatus.IN_PROGRESS, TicketStatus.WAITING_FOR_CUSTOMER),
-            Set.of(TicketRole.MANAGER, TicketRole.CUSTOMER)
+            Set.of(TicketRole.AGENT, TicketRole.MANAGER)
         );
         transitions.put(
             new TransitionKey(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED),
