@@ -55,8 +55,16 @@ public class Ticket {
     @Column(columnDefinition = "TEXT")
     private String resolutionNote;
 
+    @Enumerated(EnumType.STRING)
+    @Column
+    private com.itsm.ticket.ticket.domain.enums.ResolutionCode resolutionCode;
+
     @Column(columnDefinition = "TEXT")
     private String closeReason;
+
+    /** Username of whoever opened this ticket (set at creation, never changes). */
+    @Column
+    private String reporterId;
 
     /** Username of the currently assigned agent (Doc §11 TAKE_OWNERSHIP/REASSIGN). */
     @Column
@@ -150,14 +158,20 @@ public class Ticket {
      * RESOLVED transition with mandatory resolution note (Doc §4.1).
      * Audit + system event are produced by the service layer.
      */
-    public void resolve(TicketRole actor, String note, StatusTransitionPolicy policy) {
+    public void resolve(TicketRole actor, String note,
+                        com.itsm.ticket.ticket.domain.enums.ResolutionCode code,
+                        StatusTransitionPolicy policy) {
         if (note == null || note.isBlank()) {
             throw new IllegalArgumentException("Resolution note is required to resolve a ticket");
+        }
+        if (code == null) {
+            throw new IllegalArgumentException("Resolution code is required to resolve a ticket");
         }
         policy.validateTicket(this.status, TicketStatus.RESOLVED, actor);
         this.slaClock.stop();
         this.status = TicketStatus.RESOLVED;
         this.resolutionNote = note.trim();
+        this.resolutionCode = code;
         this.resolvedAt = Instant.now();
     }
 
@@ -362,7 +376,10 @@ public class Ticket {
     public Instant getResolvedAt() { return resolvedAt; }
     public Instant getClosedAt() { return closedAt; }
     public String getResolutionNote() { return resolutionNote; }
+    public com.itsm.ticket.ticket.domain.enums.ResolutionCode getResolutionCode() { return resolutionCode; }
     public String getCloseReason() { return closeReason; }
+    public String getReporterId() { return reporterId; }
+    public void setReporterId(String reporterId) { this.reporterId = reporterId; }
     public String getAssigneeId() { return assigneeId; }
 
     /**

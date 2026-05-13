@@ -84,11 +84,13 @@ public class ServiceRequestTicket extends Ticket {
      * "Approval tamamlanmadan RESOLVED durumuna geçilemez".
      */
     @Override
-    public void resolve(TicketRole actor, String note, StatusTransitionPolicy policy) {
+    public void resolve(TicketRole actor, String note,
+                        com.itsm.ticket.ticket.domain.enums.ResolutionCode code,
+                        StatusTransitionPolicy policy) {
         if (!isApproved()) {
             throw new IllegalStatusTransitionException(getStatus(), TicketStatus.RESOLVED, actor);
         }
-        super.resolve(actor, note, policy);
+        super.resolve(actor, note, code, policy);
     }
 
     public ServiceRequestApproval getApproval() {

@@ -19,6 +19,16 @@ export type Visibility = "INTERNAL" | "EXTERNAL";
 
 export type ApprovalState = "PENDING" | "APPROVED" | "REJECTED";
 
+export type ResolutionCode =
+  | "FIXED"
+  | "WORKAROUND"
+  | "USER_ERROR"
+  | "CONFIGURATION_CHANGE"
+  | "KNOWN_ERROR"
+  | "NOT_REPRODUCIBLE"
+  | "DUPLICATE"
+  | "NO_ACTION_REQUIRED";
+
 /**
  * Server-driven action catalog (Doc §11 "allowedActions").
  * The backend tells us which actions the current user can take,
@@ -63,6 +73,7 @@ export interface Ticket {
   urgency: TicketUrgency;
   assigneeId: string | null;
   resolutionNote: string | null;
+  resolutionCode: ResolutionCode | null;
   resolvedAt: string | null;
   closeReason: string | null;
   closedAt: string | null;
@@ -150,6 +161,7 @@ export interface AddWorklogPayload {
 
 export interface ResolveTicketPayload {
   resolutionNote: string;
+  resolutionCode: ResolutionCode;
 }
 
 export interface ForceClosePayload {

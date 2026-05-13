@@ -56,7 +56,8 @@
     place-items: center;
     color: var(--accent);
   }
-  .sidebar-collapse-toggle {
+  .sidebar-collapse-toggle,
+  .sidebar-expand-toggle {
     width: 26px;
     height: 26px;
     display: grid;
@@ -66,7 +67,8 @@
     transition: background var(--duration-fast) var(--ease-out),
                 color var(--duration-fast) var(--ease-out);
   }
-  .sidebar-collapse-toggle:hover { background: var(--bg-hover); color: var(--text); }
+  .sidebar-collapse-toggle:hover,
+  .sidebar-expand-toggle:hover { background: var(--bg-hover); color: var(--text); }
 
   .sidebar-nav {
     flex: 1;
@@ -147,11 +149,14 @@
     padding: 0;
   }
   .app-shell[data-sidebar="collapsed"] .sidebar-header {
+    flex-direction: column;
     justify-content: center;
-    padding: 0;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) 0;
+    height: auto;
+    min-height: var(--topbar-height);
   }
-  .app-shell[data-sidebar="collapsed"] .sidebar-collapse-toggle { display: none; }
-
   /* ── Topbar ────────────────────────────────────────────── */
   .topbar {
     height: var(--topbar-height);

@@ -88,7 +88,7 @@ class TicketControllerSecurityTest {
 
     @Test
     void listTickets_asCustomer_shouldReturn200() throws Exception {
-        when(ticketService.list()).thenReturn(List.of());
+        when(ticketService.list(any(), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/tickets")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
@@ -121,7 +121,7 @@ class TicketControllerSecurityTest {
 
     @Test
     void listTickets_asAgent_shouldReturn200() throws Exception {
-        when(ticketService.list()).thenReturn(List.of());
+        when(ticketService.list(any(), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/tickets")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))

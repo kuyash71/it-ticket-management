@@ -6,29 +6,44 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Select, Textarea } from "../ui/Input";
-import type { AgentSummary, TicketImpact, TicketStatus, TicketUrgency } from "../../types/api";
+import type { AgentSummary, ResolutionCode, TicketImpact, TicketStatus, TicketUrgency } from "../../types/api";
+
+const RESOLUTION_CODES: ResolutionCode[] = [
+  "FIXED",
+  "WORKAROUND",
+  "USER_ERROR",
+  "CONFIGURATION_CHANGE",
+  "KNOWN_ERROR",
+  "NOT_REPRODUCIBLE",
+  "DUPLICATE",
+  "NO_ACTION_REQUIRED",
+];
 
 type ResolveDialogProps = {
   open: boolean;
   submitting: boolean;
   onClose: () => void;
-  onSubmit: (resolutionNote: string) => void | Promise<void>;
+  onSubmit: (resolutionNote: string, resolutionCode: ResolutionCode) => void | Promise<void>;
 };
 
 /**
- * Doc §4.1 — RESOLVED requires a non-empty resolution note.
- * The submit button stays disabled until a non-blank note is entered.
+ * Doc §4.1 — RESOLVED requires a non-empty resolution note and a resolution code.
+ * The submit button stays disabled until both fields are filled.
  */
 export const ResolveDialog = ({ open, submitting, onClose, onSubmit }: ResolveDialogProps) => {
   const { t } = useTranslation();
   const [note, setNote] = useState("");
+  const [code, setCode] = useState<ResolutionCode | "">("");
 
   useEffect(() => {
-    if (!open) setNote("");
+    if (!open) {
+      setNote("");
+      setCode("");
+    }
   }, [open]);
 
   const trimmed = note.trim();
-  const canSubmit = trimmed.length > 0 && !submitting;
+  const canSubmit = trimmed.length > 0 && code !== "" && !submitting;
 
   return (
     <Dialog
@@ -43,7 +58,7 @@ export const ResolveDialog = ({ open, submitting, onClose, onSubmit }: ResolveDi
           </Button>
           <Button
             variant="primary"
-            onClick={() => void onSubmit(trimmed)}
+            onClick={() => void onSubmit(trimmed, code as ResolutionCode)}
             disabled={!canSubmit}
             loading={submitting}
           >
@@ -53,6 +68,24 @@ export const ResolveDialog = ({ open, submitting, onClose, onSubmit }: ResolveDi
       }
     >
       <Field
+        htmlFor="resolve-code"
+        label={t("ticket.resolve.code_label")}
+        required
+      >
+        <Select
+          id="resolve-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value as ResolutionCode | "")}
+        >
+          <option value="">{t("ticket.resolve.code_placeholder")}</option>
+          {RESOLUTION_CODES.map((c) => (
+            <option key={c} value={c}>
+              {t(`resolution_code.${c}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field
         htmlFor="resolve-note"
         label={t("ticket.resolve.note_label")}
         hint={t("ticket.resolve.note_hint")}
@@ -60,7 +93,6 @@ export const ResolveDialog = ({ open, submitting, onClose, onSubmit }: ResolveDi
       >
         <Textarea
           id="resolve-note"
-          autoFocus
           rows={5}
           maxLength={4000}
           value={note}

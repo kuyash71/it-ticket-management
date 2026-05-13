@@ -54,28 +54,15 @@ export const Sidebar = ({ collapsed, onToggleCollapse, activeView, onNavigate }:
           <span className="brand-mark"><LogoMark size={26} /></span>
           {!collapsed && <LogoWordmark />}
         </div>
-        {!collapsed && (
-          <button
-            type="button"
-            className="sidebar-collapse-toggle"
-            onClick={onToggleCollapse}
-            aria-label={t("nav.collapse")}
-            title={t("nav.collapse")}
-          >
-            <IconChevronLeft />
-          </button>
-        )}
-        {collapsed && (
-          <button
-            type="button"
-            className="sidebar-collapse-toggle"
-            onClick={onToggleCollapse}
-            aria-label={t("nav.expand")}
-            style={{ position: "absolute", right: 4 }}
-          >
-            <IconChevronRight />
-          </button>
-        )}
+        <button
+          type="button"
+          className="sidebar-collapse-toggle"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
+          title={collapsed ? t("nav.expand") : t("nav.collapse")}
+        >
+          {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
+        </button>
       </div>
 
       <nav className="sidebar-nav">

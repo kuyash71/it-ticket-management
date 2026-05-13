@@ -37,7 +37,7 @@ public class TicketController {
     @GetMapping
     public List<TicketResponse> listTickets(Authentication auth) {
         TicketRole role = resolveRole(auth);
-        return ticketService.list().stream()
+        return ticketService.list(role, auth.getName()).stream()
                 .map(t -> TicketResponse.from(t, role))
                 .toList();
     }
@@ -84,7 +84,7 @@ public class TicketController {
                                         Authentication auth) {
         TicketRole role = resolveRole(auth);
         return TicketResponse.from(
-                ticketService.resolve(id, request.resolutionNote(), role, auth.getName()), role);
+                ticketService.resolve(id, request.resolutionNote(), request.resolutionCode(), role, auth.getName()), role);
     }
 
     /**

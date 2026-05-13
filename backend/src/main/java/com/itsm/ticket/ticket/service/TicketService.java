@@ -70,6 +70,7 @@ public class TicketService {
             case SERVICE_REQUEST -> new ServiceRequestTicket(request.title(), request.description(), request.urgency());
         };
 
+        ticket.setReporterId(actorId);
         ticketRepository.save(ticket);
 
         String processInstanceId = workflowService.startTicketLifecycle(Map.of(
@@ -135,11 +136,13 @@ public class TicketService {
      * RESOLVED with mandatory resolution note (Doc §4.1).
      */
     @Transactional
-    public Ticket resolve(UUID ticketId, String resolutionNote, TicketRole actor, String actorId) {
+    public Ticket resolve(UUID ticketId, String resolutionNote,
+                          com.itsm.ticket.ticket.domain.enums.ResolutionCode resolutionCode,
+                          TicketRole actor, String actorId) {
         Ticket ticket = loadOrThrow(ticketId);
         String previousStatus = ticket.getStatus().name();
 
-        ticket.resolve(actor, resolutionNote, new TicketStatusTransition());
+        ticket.resolve(actor, resolutionNote, resolutionCode, new TicketStatusTransition());
 
         ticket.recordSystemEvent(actorId, toJson(Map.of(
                 "event", "STATUS_CHANGED",
@@ -147,13 +150,15 @@ public class TicketService {
                 "to", TicketStatus.RESOLVED.name())));
         ticket.audit(actorId, CatalogEventType.STATUS_CHANGED, resolutionNote,
                 toJson(Map.of("from", previousStatus, "to", TicketStatus.RESOLVED.name(),
-                        "resolutionNote", resolutionNote)));
+                        "resolutionNote", resolutionNote,
+                        "resolutionCode", resolutionCode.name())));
 
         ticketRepository.save(ticket);
 
         withMdc(ticketId, actorId, () ->
                 kafkaLogProducer.publish(LogEvent.of("TICKET_RESOLVED", ticketId.toString(), actorId,
-                        Map.of("from", previousStatus, "resolutionNote", resolutionNote))));
+                        Map.of("from", previousStatus, "resolutionNote", resolutionNote,
+                                "resolutionCode", resolutionCode.name()))));
 
         notificationService.notify(ticket.getId(), CatalogEventType.STATUS_CHANGED,
                 Map.of("newStatus", TicketStatus.RESOLVED.name()));
@@ -515,8 +520,12 @@ public class TicketService {
     }
 
     @Transactional(readOnly = true)
-    public List<Ticket> list() {
-        return ticketRepository.findAll();
+    public List<Ticket> list(TicketRole role, String actorId) {
+        return switch (role) {
+            case CUSTOMER -> ticketRepository.findByReporterId(actorId);
+            case AGENT    -> ticketRepository.findByStatusOrAssigneeId(TicketStatus.NEW, actorId);
+            case MANAGER  -> ticketRepository.findAll();
+        };
     }
 
     @Transactional(readOnly = true)

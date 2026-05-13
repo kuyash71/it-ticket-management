@@ -608,8 +608,8 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
         open={dialog === "resolve"}
         submitting={actionSubmitting}
         onClose={() => !actionSubmitting && setDialog(null)}
-        onSubmit={(resolutionNote) => {
-          const payload: ResolveTicketPayload = { resolutionNote };
+        onSubmit={(resolutionNote, resolutionCode) => {
+          const payload: ResolveTicketPayload = { resolutionNote, resolutionCode };
           return runVerifiedAction(
             () => http.post<Ticket>(`/api/tickets/${ticketId}/resolve`, payload),
             () => setDialog(null),

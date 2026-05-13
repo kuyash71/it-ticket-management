@@ -1,4 +1,4 @@
-import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { http } from "../../api/http";
@@ -6,20 +6,33 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Select, Textarea } from "../ui/Input";
+const RESOLUTION_CODES = [
+    "FIXED",
+    "WORKAROUND",
+    "USER_ERROR",
+    "CONFIGURATION_CHANGE",
+    "KNOWN_ERROR",
+    "NOT_REPRODUCIBLE",
+    "DUPLICATE",
+    "NO_ACTION_REQUIRED",
+];
 /**
- * Doc §4.1 — RESOLVED requires a non-empty resolution note.
- * The submit button stays disabled until a non-blank note is entered.
+ * Doc §4.1 — RESOLVED requires a non-empty resolution note and a resolution code.
+ * The submit button stays disabled until both fields are filled.
  */
 export const ResolveDialog = ({ open, submitting, onClose, onSubmit }) => {
     const { t } = useTranslation();
     const [note, setNote] = useState("");
+    const [code, setCode] = useState("");
     useEffect(() => {
-        if (!open)
+        if (!open) {
             setNote("");
+            setCode("");
+        }
     }, [open]);
     const trimmed = note.trim();
-    const canSubmit = trimmed.length > 0 && !submitting;
-    return (_jsx(Dialog, { open: open, onClose: onClose, title: t("ticket.resolve.title"), description: t("ticket.resolve.description"), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "ghost", onClick: onClose, disabled: submitting, children: t("action.cancel") }), _jsx(Button, { variant: "primary", onClick: () => void onSubmit(trimmed), disabled: !canSubmit, loading: submitting, children: t("ticket.resolve.submit") })] }), children: _jsx(Field, { htmlFor: "resolve-note", label: t("ticket.resolve.note_label"), hint: t("ticket.resolve.note_hint"), required: true, children: _jsx(Textarea, { id: "resolve-note", autoFocus: true, rows: 5, maxLength: 4000, value: note, onChange: (e) => setNote(e.target.value), placeholder: t("ticket.resolve.note_placeholder") }) }) }));
+    const canSubmit = trimmed.length > 0 && code !== "" && !submitting;
+    return (_jsxs(Dialog, { open: open, onClose: onClose, title: t("ticket.resolve.title"), description: t("ticket.resolve.description"), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "ghost", onClick: onClose, disabled: submitting, children: t("action.cancel") }), _jsx(Button, { variant: "primary", onClick: () => void onSubmit(trimmed, code), disabled: !canSubmit, loading: submitting, children: t("ticket.resolve.submit") })] }), children: [_jsx(Field, { htmlFor: "resolve-code", label: t("ticket.resolve.code_label"), required: true, children: _jsxs(Select, { id: "resolve-code", value: code, onChange: (e) => setCode(e.target.value), children: [_jsx("option", { value: "", children: t("ticket.resolve.code_placeholder") }), RESOLUTION_CODES.map((c) => (_jsx("option", { value: c, children: t(`resolution_code.${c}`) }, c)))] }) }), _jsx(Field, { htmlFor: "resolve-note", label: t("ticket.resolve.note_label"), hint: t("ticket.resolve.note_hint"), required: true, children: _jsx(Textarea, { id: "resolve-note", rows: 5, maxLength: 4000, value: note, onChange: (e) => setNote(e.target.value), placeholder: t("ticket.resolve.note_placeholder") }) })] }));
 };
 /**
  * Doc §4.1 — Customer confirms closure of a RESOLVED ticket.

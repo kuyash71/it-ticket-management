@@ -10,4 +10,10 @@ import java.util.UUID;
 public interface TicketRepository extends JpaRepository<Ticket, UUID> {
     /** Tickets with an active SLA clock (i.e. not yet resolved/closed). */
     List<Ticket> findByStatusNotIn(List<TicketStatus> statuses);
+
+    /** Customer view: only tickets the user opened. */
+    List<Ticket> findByReporterId(String reporterId);
+
+    /** Agent view: unassigned NEW tickets + tickets assigned to this agent. */
+    List<Ticket> findByStatusOrAssigneeId(TicketStatus status, String assigneeId);
 }
