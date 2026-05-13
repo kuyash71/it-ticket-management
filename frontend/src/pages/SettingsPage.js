@@ -2,6 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
+import { parseJwtPayload } from "../lib/jwt";
 import { useRole } from "../auth/useRole";
 import { Avatar } from "../components/ui/Avatar";
 import { Button } from "../components/ui/Button";
@@ -40,7 +41,7 @@ function parseProfile(token) {
     if (!token)
         return { name: "", email: "", username: "User" };
     try {
-        const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+        const payload = parseJwtPayload(token);
         return {
             name: payload.name ?? `${payload.given_name ?? ""} ${payload.family_name ?? ""}`.trim(),
             email: payload.email ?? "",

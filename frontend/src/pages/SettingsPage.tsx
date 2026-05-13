@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/AuthProvider";
+import { parseJwtPayload } from "../lib/jwt";
 import { useRole } from "../auth/useRole";
 import { Avatar } from "../components/ui/Avatar";
 import { Button } from "../components/ui/Button";
@@ -193,7 +194,7 @@ const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
 function parseProfile(token?: string): Profile {
   if (!token) return { name: "", email: "", username: "User" };
   try {
-    const payload = JSON.parse(atob(token.split(".")[1] ?? "")) as Record<string, string>;
+    const payload = parseJwtPayload(token) as Record<string, string>;
     return {
       name: payload.name ?? `${payload.given_name ?? ""} ${payload.family_name ?? ""}`.trim(),
       email: payload.email ?? "",

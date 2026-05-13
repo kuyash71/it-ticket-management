@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
     "axios": "^1.7.9",
     "i18next": "^24.2.0",
     "keycloak-js": "^26.0.7",

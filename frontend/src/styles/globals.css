@@ -4,6 +4,8 @@
 
 @layer reset, base, components, utilities;
 
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/inter/wght-italic.css";
 @import "./tokens.css";
 @import "./components.css";
 @import "./app-shell.css";

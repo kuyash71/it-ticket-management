@@ -2,6 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
 import { useRole } from "../auth/useRole";
+import { parseJwtPayload } from "../lib/jwt";
 import { Avatar } from "./ui/Avatar";
 import { IconBarChart, IconChevronLeft, IconChevronRight, IconInbox, IconLayoutDashboard, IconSettings } from "./ui/Icon";
 import { Tooltip } from "./ui/Tooltip";
@@ -37,7 +38,7 @@ const parseUsernameFromToken = (token) => {
     if (!token)
         return "User";
     try {
-        const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+        const payload = parseJwtPayload(token);
         return (payload.preferred_username ??
             payload.name ??
             payload.email ??

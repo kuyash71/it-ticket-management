@@ -403,4 +403,13 @@ public class Ticket {
         this.urgency = urgency;
         applyPriority(new TicketPriorityTransition());
     }
+
+    /** Returns true only for SERVICE_REQUEST tickets whose approval is still PENDING. */
+    public boolean isPendingApproval() { return false; }
+
+    /** Returns true when no approval is required OR approval has been granted. */
+    public boolean isApproved() { return true; }
+
+    /** Returns the approval state name (PENDING/APPROVED/REJECTED) or null for incidents. */
+    public String getApprovalStateName() { return null; }
 }

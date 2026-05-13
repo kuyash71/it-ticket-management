@@ -10,6 +10,7 @@ import com.itsm.ticket.ticket.api.AddWorklogRequest;
 import com.itsm.ticket.ticket.api.ChangePriorityRequest;
 import com.itsm.ticket.ticket.domain.*;
 import com.itsm.ticket.ticket.domain.enums.CatalogEventType;
+import com.itsm.ticket.ticket.domain.enums.ServiceRequstApprovalStatus;
 import com.itsm.ticket.ticket.domain.enums.TicketEventVisibility;
 import com.itsm.ticket.ticket.domain.enums.TicketPriority;
 import com.itsm.ticket.ticket.domain.enums.TicketRole;
@@ -444,6 +445,73 @@ public class TicketService {
         notificationService.notify(ticket.getId(), CatalogEventType.ATTACHMENT_ADDED,
                 Map.of("visibility", request.visibility().name()));
         return attachment;
+    }
+
+    /**
+     * Manager approves a SERVICE_REQUEST (Doc §2.4).
+     * After approval the ticket becomes resolvable.
+     */
+    @Transactional
+    public Ticket approveRequest(UUID ticketId, TicketRole actor, String actorId) {
+        Ticket ticket = loadOrThrow(ticketId);
+        if (actor != TicketRole.MANAGER) {
+            throw new UnauthorizedOperationException("Only managers can approve service requests");
+        }
+        if (!(ticket instanceof ServiceRequestTicket sr)) {
+            throw new UnauthorizedOperationException("Approval is only applicable to service requests");
+        }
+        if (sr.getApproval().getState() != ServiceRequstApprovalStatus.PENDING) {
+            throw new UnauthorizedOperationException("Request is not in PENDING state");
+        }
+        sr.getApproval().approve(actorId);
+
+        ticket.recordSystemEvent(actorId, toJson(Map.of(
+                "event", "APPROVAL_CHANGED", "state", "APPROVED")));
+        ticket.audit(actorId, CatalogEventType.APPROVAL_CHANGED, "Request approved",
+                toJson(Map.of("state", "APPROVED", "decidedBy", actorId)));
+
+        ticketRepository.save(ticket);
+
+        withMdc(ticketId, actorId, () ->
+                kafkaLogProducer.publish(LogEvent.of("REQUEST_APPROVED", ticketId.toString(), actorId,
+                        Map.of("state", "APPROVED"))));
+
+        notificationService.notify(ticket.getId(), CatalogEventType.APPROVAL_CHANGED,
+                Map.of("state", "APPROVED"));
+        return ticket;
+    }
+
+    /**
+     * Manager rejects a SERVICE_REQUEST with mandatory reason (Doc §2.4).
+     */
+    @Transactional
+    public Ticket rejectRequest(UUID ticketId, String reason, TicketRole actor, String actorId) {
+        Ticket ticket = loadOrThrow(ticketId);
+        if (actor != TicketRole.MANAGER) {
+            throw new UnauthorizedOperationException("Only managers can reject service requests");
+        }
+        if (!(ticket instanceof ServiceRequestTicket sr)) {
+            throw new UnauthorizedOperationException("Approval is only applicable to service requests");
+        }
+        if (sr.getApproval().getState() != ServiceRequstApprovalStatus.PENDING) {
+            throw new UnauthorizedOperationException("Request is not in PENDING state");
+        }
+        sr.getApproval().reject(actorId, reason);
+
+        ticket.recordSystemEvent(actorId, toJson(Map.of(
+                "event", "APPROVAL_CHANGED", "state", "REJECTED")));
+        ticket.audit(actorId, CatalogEventType.APPROVAL_CHANGED, reason,
+                toJson(Map.of("state", "REJECTED", "decidedBy", actorId, "reason", reason)));
+
+        ticketRepository.save(ticket);
+
+        withMdc(ticketId, actorId, () ->
+                kafkaLogProducer.publish(LogEvent.of("REQUEST_REJECTED", ticketId.toString(), actorId,
+                        Map.of("state", "REJECTED", "reason", reason))));
+
+        notificationService.notify(ticket.getId(), CatalogEventType.APPROVAL_CHANGED,
+                Map.of("state", "REJECTED"));
+        return ticket;
     }
 
     @Transactional(readOnly = true)

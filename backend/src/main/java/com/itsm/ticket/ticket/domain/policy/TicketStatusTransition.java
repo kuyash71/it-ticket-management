@@ -42,6 +42,11 @@ public class TicketStatusTransition implements StatusTransitionPolicy {
             new TransitionKey(TicketStatus.RESOLVED, TicketStatus.CLOSED),
             Set.of(TicketRole.CUSTOMER)
         );
+        // Doc §11 — customer may reopen a resolved ticket if the issue recurs.
+        transitions.put(
+            new TransitionKey(TicketStatus.RESOLVED, TicketStatus.IN_PROGRESS),
+            Set.of(TicketRole.CUSTOMER)
+        );
 
     }
 

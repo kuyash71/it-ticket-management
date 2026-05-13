@@ -395,6 +395,132 @@ export const ReassignDialog = ({
   );
 };
 
+type ConfirmResumeDialogProps = {
+  open: boolean;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: () => void | Promise<void>;
+};
+
+export const ConfirmResumeDialog = ({ open, submitting, onClose, onSubmit }: ConfirmResumeDialogProps) => {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t("ticket.request_info.confirm_title")}
+      description={t("ticket.request_info.confirm_description")}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            {t("action.cancel")}
+          </Button>
+          <Button variant="primary" onClick={() => void onSubmit()} loading={submitting}>
+            {t("ticket.request_info.confirm_submit")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>
+        {t("ticket.request_info.confirm_body")}
+      </p>
+    </Dialog>
+  );
+};
+
+type ApproveDialogProps = {
+  open: boolean;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: () => void | Promise<void>;
+};
+
+export const ApproveDialog = ({ open, submitting, onClose, onSubmit }: ApproveDialogProps) => {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t("approval.approve.title")}
+      description={t("approval.approve.description")}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            {t("action.cancel")}
+          </Button>
+          <Button variant="primary" onClick={() => void onSubmit()} loading={submitting}>
+            {t("approval.approve.submit")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }}>
+        {t("approval.approve.body")}
+      </p>
+    </Dialog>
+  );
+};
+
+type RejectDialogProps = {
+  open: boolean;
+  submitting: boolean;
+  onClose: () => void;
+  onSubmit: (reason: string) => void | Promise<void>;
+};
+
+export const RejectDialog = ({ open, submitting, onClose, onSubmit }: RejectDialogProps) => {
+  const { t } = useTranslation();
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    if (!open) setReason("");
+  }, [open]);
+
+  const trimmed = reason.trim();
+  const canSubmit = trimmed.length > 0 && !submitting;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t("approval.reject.title")}
+      description={t("approval.reject.description")}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
+            {t("action.cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => void onSubmit(trimmed)}
+            disabled={!canSubmit}
+            loading={submitting}
+          >
+            {t("approval.reject.submit")}
+          </Button>
+        </>
+      }
+    >
+      <Field
+        htmlFor="reject-reason"
+        label={t("approval.reject.reason_label")}
+        hint={t("approval.reject.reason_hint")}
+        required
+      >
+        <Textarea
+          id="reject-reason"
+          autoFocus
+          rows={4}
+          maxLength={2000}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={t("approval.reject.reason_placeholder")}
+        />
+      </Field>
+    </Dialog>
+  );
+};
+
 type ChangePriorityDialogProps = {
   open: boolean;
   submitting: boolean;

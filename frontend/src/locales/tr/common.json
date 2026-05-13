@@ -196,6 +196,22 @@
   "approval.approved": "Onaylandı",
   "approval.rejected": "Reddedildi",
 
+  "approval.approve.action": "Talebi onayla",
+  "approval.approve.title": "Hizmet talebini onayla",
+  "approval.approve.description": "Onaylandığında agent bu ticket'ı çözüme kavuşturabilir.",
+  "approval.approve.body": "Onayladıktan sonra atanmış agent bu ticket'ı çözebilir hale gelir. Bu işlem denetim kaydına eklenir.",
+  "approval.approve.submit": "Onayla",
+  "approval.approve.success": "Talep onaylandı",
+
+  "approval.reject.action": "Talebi reddet",
+  "approval.reject.title": "Hizmet talebini reddet",
+  "approval.reject.description": "Reddetme işlemi çözümü engeller. Sebep kalıcı olarak denetim kaydına eklenir.",
+  "approval.reject.reason_label": "Sebep",
+  "approval.reject.reason_hint": "Zorunlu — talebin neden reddedildiğini açıklayın.",
+  "approval.reject.reason_placeholder": "ör. Talep tedarik politikasına uygun değil.",
+  "approval.reject.submit": "Reddet",
+  "approval.reject.success": "Talep reddedildi",
+
   "status.new": "Yeni",
   "status.in_progress": "İşlemde",
   "status.waiting": "Beklemede",
@@ -271,6 +287,13 @@
   "command.empty": "Sonuç yok",
   "command.group.navigate": "Gezinme",
   "command.group.actions": "Eylemler",
+
+  "ticket.request_info.action": "Yanıtladım — devam et",
+  "ticket.request_info.confirm_title": "Çalışmaya devam edilsin mi?",
+  "ticket.request_info.confirm_description": "Bu işlem talep durumunu tekrar İşlemde olarak değiştirecektir.",
+  "ticket.request_info.confirm_body": "Agent'ın talebini yanıtladığınızı ve çalışmaya devam edilmesini istediğinizi onaylayın. Agent bilgilendirilecektir.",
+  "ticket.request_info.confirm_submit": "Evet, devam et",
+  "ticket.reopen.action": "Ticketı yeniden aç",
 
   "action.refresh": "Yenile",
   "action.cancel": "İptal",

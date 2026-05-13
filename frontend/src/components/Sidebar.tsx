@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { AppView } from "../App";
 import { useAuth } from "../auth/AuthProvider";
 import { useRole } from "../auth/useRole";
+import { parseJwtPayload } from "../lib/jwt";
 import { Avatar } from "./ui/Avatar";
 import {
   IconBarChart,
@@ -158,11 +159,11 @@ const NavGroup = ({
 const parseUsernameFromToken = (token?: string): string => {
   if (!token) return "User";
   try {
-    const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+    const payload = parseJwtPayload(token);
     return (
-      payload.preferred_username ??
-      payload.name ??
-      payload.email ??
+      (payload.preferred_username as string | undefined) ??
+      (payload.name as string | undefined) ??
+      (payload.email as string | undefined) ??
       "User"
     );
   } catch {

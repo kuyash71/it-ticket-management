@@ -118,6 +118,25 @@ export const ReassignDialog = ({ open, submitting, currentAssignee, onClose, onS
                         ? t("ticket.reassign.no_agents")
                         : t("ticket.reassign.assignee_hint"), required: true, children: _jsx(Select, { id: "reassign-assignee", value: assignee, onChange: (e) => setAssignee(e.target.value), disabled: loadingAgents || agents.length === 0, children: agents.map((a) => (_jsxs("option", { value: a.username, children: [a.displayName, " (", a.username, ") \u2014 ", a.role] }, a.username))) }) }), _jsx(Field, { htmlFor: "reassign-reason", label: t("ticket.reassign.reason_label"), hint: t("ticket.reassign.reason_hint"), required: true, children: _jsx(Textarea, { id: "reassign-reason", rows: 3, maxLength: 1000, value: reason, onChange: (e) => setReason(e.target.value), placeholder: t("ticket.reassign.reason_placeholder") }) })] }));
 };
+export const ConfirmResumeDialog = ({ open, submitting, onClose, onSubmit }) => {
+    const { t } = useTranslation();
+    return (_jsx(Dialog, { open: open, onClose: onClose, title: t("ticket.request_info.confirm_title"), description: t("ticket.request_info.confirm_description"), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "ghost", onClick: onClose, disabled: submitting, children: t("action.cancel") }), _jsx(Button, { variant: "primary", onClick: () => void onSubmit(), loading: submitting, children: t("ticket.request_info.confirm_submit") })] }), children: _jsx("p", { style: { color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }, children: t("ticket.request_info.confirm_body") }) }));
+};
+export const ApproveDialog = ({ open, submitting, onClose, onSubmit }) => {
+    const { t } = useTranslation();
+    return (_jsx(Dialog, { open: open, onClose: onClose, title: t("approval.approve.title"), description: t("approval.approve.description"), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "ghost", onClick: onClose, disabled: submitting, children: t("action.cancel") }), _jsx(Button, { variant: "primary", onClick: () => void onSubmit(), loading: submitting, children: t("approval.approve.submit") })] }), children: _jsx("p", { style: { color: "var(--text-secondary)", fontSize: "var(--text-sm)", margin: 0 }, children: t("approval.approve.body") }) }));
+};
+export const RejectDialog = ({ open, submitting, onClose, onSubmit }) => {
+    const { t } = useTranslation();
+    const [reason, setReason] = useState("");
+    useEffect(() => {
+        if (!open)
+            setReason("");
+    }, [open]);
+    const trimmed = reason.trim();
+    const canSubmit = trimmed.length > 0 && !submitting;
+    return (_jsx(Dialog, { open: open, onClose: onClose, title: t("approval.reject.title"), description: t("approval.reject.description"), footer: _jsxs(_Fragment, { children: [_jsx(Button, { variant: "ghost", onClick: onClose, disabled: submitting, children: t("action.cancel") }), _jsx(Button, { variant: "danger", onClick: () => void onSubmit(trimmed), disabled: !canSubmit, loading: submitting, children: t("approval.reject.submit") })] }), children: _jsx(Field, { htmlFor: "reject-reason", label: t("approval.reject.reason_label"), hint: t("approval.reject.reason_hint"), required: true, children: _jsx(Textarea, { id: "reject-reason", autoFocus: true, rows: 4, maxLength: 2000, value: reason, onChange: (e) => setReason(e.target.value), placeholder: t("approval.reject.reason_placeholder") }) }) }));
+};
 /**
  * Doc §3.2 — Priority change requires reason; audit zorunlu.
  * Backend recalculates priority from (impact, urgency).

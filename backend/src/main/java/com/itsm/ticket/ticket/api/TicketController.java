@@ -157,6 +157,28 @@ public class TicketController {
                         role, auth.getName()), role);
     }
 
+    /**
+     * Doc §2.4 — Manager approves a service request (no body needed).
+     */
+    @PostMapping("/{id}/approve")
+    public TicketResponse approveRequest(@PathVariable UUID id, Authentication auth) {
+        TicketRole role = resolveRole(auth);
+        return TicketResponse.from(
+                ticketService.approveRequest(id, role, auth.getName()), role);
+    }
+
+    /**
+     * Doc §2.4 — Manager rejects a service request with mandatory reason.
+     */
+    @PostMapping("/{id}/reject")
+    public TicketResponse rejectRequest(@PathVariable UUID id,
+                                        @Valid @RequestBody RejectRequestRequest request,
+                                        Authentication auth) {
+        TicketRole role = resolveRole(auth);
+        return TicketResponse.from(
+                ticketService.rejectRequest(id, request.reason(), role, auth.getName()), role);
+    }
+
     @GetMapping("/{id}")
     public TicketResponse getTicket(@PathVariable UUID id, Authentication auth) {
         return TicketResponse.from(ticketService.getById(id), resolveRole(auth));

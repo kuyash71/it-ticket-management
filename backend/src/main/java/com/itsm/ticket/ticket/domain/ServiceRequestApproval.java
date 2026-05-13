@@ -1,11 +1,9 @@
 package com.itsm.ticket.ticket.domain;
 
-import com.itsm.ticket.ticket.domain.enums.SLAClockState;
 import com.itsm.ticket.ticket.domain.enums.ServiceRequstApprovalStatus;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 public class ServiceRequestApproval {
@@ -15,7 +13,8 @@ public class ServiceRequestApproval {
     @Column(nullable = false)
     private Long id;
 
-    private UUID decidedByID;
+    @Column(length = 255)
+    private String decidedBy;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -30,16 +29,17 @@ public class ServiceRequestApproval {
         this.state = ServiceRequstApprovalStatus.PENDING;
     }
 
-    public void approve(UUID approvedBy) {
+    public void approve(String approvedBy) {
         this.state = ServiceRequstApprovalStatus.APPROVED;
         this.decidedAt = Instant.now();
-        this.decidedByID = approvedBy;
+        this.decidedBy = approvedBy;
     }
-    public void reject(UUID rejectedBy, String reason) {
+
+    public void reject(String rejectedBy, String reason) {
         this.state = ServiceRequstApprovalStatus.REJECTED;
         this.decidedAt = Instant.now();
         this.reason = reason;
-        this.decidedByID = rejectedBy;
+        this.decidedBy = rejectedBy;
     }
 
     public ServiceRequstApprovalStatus getState() {

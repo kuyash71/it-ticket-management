@@ -1,6 +1,5 @@
 package com.itsm.ticket.ticket.api;
 
-import com.itsm.ticket.ticket.domain.ServiceRequestTicket;
 import com.itsm.ticket.ticket.domain.Ticket;
 import com.itsm.ticket.ticket.domain.enums.SLAEscalationLevel;
 import com.itsm.ticket.ticket.domain.enums.TicketAction;
@@ -52,10 +51,7 @@ public record TicketResponse(
                 ? List.of()
                 : ACTIONS.compute(ticket, role).stream().map(TicketAction::name).toList();
 
-        String approvalState = null;
-        if (ticket instanceof ServiceRequestTicket sr && sr.getApproval() != null) {
-            approvalState = sr.getApproval().getState().name();
-        }
+        String approvalState = ticket.getApprovalStateName();
 
         return new TicketResponse(
                 ticket.getId(),

@@ -2,12 +2,18 @@ package com.itsm.ticket.ticket.domain;
 
 import com.itsm.ticket.ticket.domain.enums.CatalogEventType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Check;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
 @Table(name = "audit_records")
+@Check(name = "audit_records_action_check", constraints = "action IN (" +
+        "'TICKET_CREATED','TICKET_UPDATED','STATUS_CHANGED','PRIORITY_CHANGED'," +
+        "'SLA_PAUSED','SLA_RESUMED','SLA_BREACH_RISK','SLA_BREACHED'," +
+        "'MANAGER_OVERRIDE','ATTACHMENT_ADDED','COMMENT_ADDED','WORKLOG_ADDED'," +
+        "'ASSIGNMENT_CHANGED','APPROVAL_CHANGED')")
 public class AuditRecord {
 
     @Id

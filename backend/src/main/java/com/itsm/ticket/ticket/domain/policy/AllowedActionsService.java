@@ -1,8 +1,6 @@
 package com.itsm.ticket.ticket.domain.policy;
 
-import com.itsm.ticket.ticket.domain.ServiceRequestTicket;
 import com.itsm.ticket.ticket.domain.Ticket;
-import com.itsm.ticket.ticket.domain.enums.ServiceRequstApprovalStatus;
 import com.itsm.ticket.ticket.domain.enums.TicketAction;
 import com.itsm.ticket.ticket.domain.enums.TicketRole;
 import com.itsm.ticket.ticket.domain.enums.TicketStatus;
@@ -14,6 +12,9 @@ import java.util.Set;
 /**
  * Computes which actions a given role can perform on a ticket in its current state.
  * Doc §11 — Backend response should include allowedActions[] so the UI hides unauthorized buttons.
+ *
+ * Uses virtual-dispatch methods (isPendingApproval, isApproved) instead of instanceof to
+ * avoid Hibernate proxy type-erasure silently breaking SERVICE_REQUEST checks.
  */
 public final class AllowedActionsService {
 
@@ -26,7 +27,7 @@ public final class AllowedActionsService {
         }
 
         switch (role) {
-            case CUSTOMER -> addCustomerActions(actions, status);
+            case CUSTOMER -> addCustomerActions(actions, ticket, status);
             case AGENT -> addAgentActions(actions, ticket, status);
             case MANAGER -> addManagerActions(actions, ticket, status);
         }
@@ -34,16 +35,18 @@ public final class AllowedActionsService {
         return List.copyOf(actions);
     }
 
-    private void addCustomerActions(Set<TicketAction> actions, TicketStatus status) {
+    private void addCustomerActions(Set<TicketAction> actions, Ticket ticket, TicketStatus status) {
         actions.add(TicketAction.ADD_COMMENT);
         actions.add(TicketAction.ADD_ATTACHMENT);
         if (status == TicketStatus.WAITING_FOR_CUSTOMER) {
-            // Customer replies -> back to IN_PROGRESS (Doc §4.1)
-            actions.add(TicketAction.REQUEST_INFO); // re-engage agent; same transition
+            // Customer has responded and wants work to resume (Doc §4.1 "Customer replied").
+            // REQUEST_INFO re-uses the same WAITING→IN_PROGRESS transition in the backend.
+            actions.add(TicketAction.REQUEST_INFO);
         }
         if (status == TicketStatus.RESOLVED) {
             actions.add(TicketAction.CONFIRM_CLOSE);
-            actions.add(TicketAction.REOPEN_REQUEST); // Doc §11 reopen scenario
+            // Doc §11 — customer may reopen a resolved ticket (RESOLVED→IN_PROGRESS).
+            actions.add(TicketAction.REOPEN_REQUEST);
         }
     }
 
@@ -54,10 +57,15 @@ public final class AllowedActionsService {
         actions.add(TicketAction.CHANGE_PRIORITY);
 
         switch (status) {
-            case NEW -> actions.add(TicketAction.TAKE_OWNERSHIP);
+            case NEW -> {
+                // Unapproved service requests cannot be taken into progress (Doc §2.4).
+                if (!ticket.isPendingApproval()) {
+                    actions.add(TicketAction.TAKE_OWNERSHIP);
+                }
+            }
             case IN_PROGRESS -> {
-                actions.add(TicketAction.REQUEST_INFO);
-                if (canResolve(ticket)) {
+                // REQUEST_INFO (WAITING_FOR_CUSTOMER geçişi) plain transitions aracılığıyla gösteriliyor.
+                if (ticket.isApproved()) {
                     actions.add(TicketAction.RESOLVE);
                 }
             }
@@ -72,19 +80,10 @@ public final class AllowedActionsService {
         actions.add(TicketAction.REASSIGN);
         actions.add(TicketAction.FORCE_CLOSE);
 
-        if (ticket instanceof ServiceRequestTicket sr
-                && sr.getApproval() != null
-                && sr.getApproval().getState() == ServiceRequstApprovalStatus.PENDING) {
+        // Approve/reject only available while approval is still PENDING (virtual dispatch — no instanceof).
+        if (ticket.isPendingApproval()) {
             actions.add(TicketAction.APPROVE_REQUEST);
             actions.add(TicketAction.REJECT_REQUEST);
         }
-    }
-
-    private boolean canResolve(Ticket ticket) {
-        if (ticket instanceof ServiceRequestTicket sr) {
-            return sr.getApproval() != null
-                    && sr.getApproval().getState() == ServiceRequstApprovalStatus.APPROVED;
-        }
-        return true;
     }
 }

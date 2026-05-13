@@ -6,11 +6,14 @@ import { http } from "../api/http";
 import { useRole } from "../auth/useRole";
 import { SlaPanel } from "../components/ticket/SlaPanel";
 import {
+  ApproveDialog,
   ChangePriorityDialog,
   ConfirmCloseDialog,
+  ConfirmResumeDialog,
   ForceCloseDialog,
   OverrideStatusDialog,
   ReassignDialog,
+  RejectDialog,
   ResolveDialog,
 } from "../components/ticket/TicketActionDialogs";
 import { Avatar } from "../components/ui/Avatar";
@@ -76,7 +79,7 @@ type Props = {
   onBack: () => void;
 };
 
-type DialogKind = "resolve" | "confirmClose" | "forceClose" | "priority" | "reassign" | "override" | null;
+type DialogKind = "resolve" | "confirmClose" | "confirmResume" | "forceClose" | "priority" | "reassign" | "override" | "approve" | "reject" | null;
 
 export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
   const { t } = useTranslation();
@@ -248,9 +251,17 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
   }
 
   const allowedActions = new Set<TicketAction>(ticket.allowedActions);
-  // Plain (no-verification) transitions only apply to agents/managers; customers act via allowedActions only.
+  // Plain transitions apply to agents/managers only, and exclude IN_PROGRESS for unapproved service requests.
   const canRunPlainTransitions = isAgent() || isManager();
-  const plainTransitions = canRunPlainTransitions ? PLAIN_STATUS_TRANSITIONS[ticket.status] : [];
+  const plainTransitions = canRunPlainTransitions
+    ? PLAIN_STATUS_TRANSITIONS[ticket.status].filter((target) => {
+        // Block NEW→IN_PROGRESS and WAITING→IN_PROGRESS for unapproved service requests.
+        if (target === "IN_PROGRESS" && ticket.type === "SERVICE_REQUEST" && ticket.approvalState === "PENDING") {
+          return false;
+        }
+        return true;
+      })
+    : [];
   const hasAny = (...actions: TicketAction[]) => actions.some((a) => allowedActions.has(a));
   const canPostInternal = !isCustomer();
 
@@ -354,7 +365,7 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
           {ticket.sla && <SlaPanel sla={ticket.sla} />}
 
           {(plainTransitions.length > 0 ||
-            hasAny("TAKE_OWNERSHIP", "RESOLVE", "CONFIRM_CLOSE", "FORCE_CLOSE", "CHANGE_PRIORITY", "REASSIGN", "OVERRIDE_STATUS")) && (
+            hasAny("TAKE_OWNERSHIP", "RESOLVE", "CONFIRM_CLOSE", "FORCE_CLOSE", "CHANGE_PRIORITY", "REASSIGN", "OVERRIDE_STATUS", "APPROVE_REQUEST", "REJECT_REQUEST", "REQUEST_INFO", "REOPEN_REQUEST")) && (
             <div className="side-section">
               <div className="side-section-header">{t("ticket.actions")}</div>
               <div className="side-section-body">
@@ -369,6 +380,31 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
                       disabled={transitioning !== null}
                     >
                       {t("ticket.take_ownership.action")}
+                    </Button>
+                  )}
+
+                  {allowedActions.has("REQUEST_INFO") && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leadingIcon={<IconArrowRight size={14} aria-hidden />}
+                      onClick={() => setDialog("confirmResume")}
+                      disabled={transitioning !== null || actionSubmitting}
+                    >
+                      {t("ticket.request_info.action")}
+                    </Button>
+                  )}
+
+                  {allowedActions.has("REOPEN_REQUEST") && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      leadingIcon={<IconRefresh size={14} aria-hidden />}
+                      onClick={() => void handlePlainTransition("IN_PROGRESS")}
+                      loading={transitioning === "IN_PROGRESS"}
+                      disabled={transitioning !== null || actionSubmitting}
+                    >
+                      {t("ticket.reopen.action")}
                     </Button>
                   )}
 
@@ -444,6 +480,30 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
                       disabled={actionSubmitting}
                     >
                       {t("ticket.force_close.action")}
+                    </Button>
+                  )}
+
+                  {allowedActions.has("APPROVE_REQUEST") && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leadingIcon={<IconCheckCircle size={14} aria-hidden />}
+                      onClick={() => setDialog("approve")}
+                      disabled={actionSubmitting}
+                    >
+                      {t("approval.approve.action")}
+                    </Button>
+                  )}
+
+                  {allowedActions.has("REJECT_REQUEST") && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      leadingIcon={<IconAlertCircle size={14} aria-hidden />}
+                      onClick={() => setDialog("reject")}
+                      disabled={actionSubmitting}
+                    >
+                      {t("approval.reject.action")}
                     </Button>
                   )}
 
@@ -629,6 +689,42 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
             "ticket.reassign.success",
           );
         }}
+      />
+
+      <ConfirmResumeDialog
+        open={dialog === "confirmResume"}
+        submitting={transitioning === "IN_PROGRESS"}
+        onClose={() => setDialog(null)}
+        onSubmit={() => {
+          setDialog(null);
+          return handlePlainTransition("IN_PROGRESS");
+        }}
+      />
+
+      <ApproveDialog
+        open={dialog === "approve"}
+        submitting={actionSubmitting}
+        onClose={() => !actionSubmitting && setDialog(null)}
+        onSubmit={() =>
+          runVerifiedAction(
+            () => http.post<Ticket>(`/api/tickets/${ticketId}/approve`),
+            () => setDialog(null),
+            "approval.approve.success",
+          )
+        }
+      />
+
+      <RejectDialog
+        open={dialog === "reject"}
+        submitting={actionSubmitting}
+        onClose={() => !actionSubmitting && setDialog(null)}
+        onSubmit={(reason) =>
+          runVerifiedAction(
+            () => http.post<Ticket>(`/api/tickets/${ticketId}/reject`, { reason }),
+            () => setDialog(null),
+            "approval.reject.success",
+          )
+        }
       />
     </div>
   );

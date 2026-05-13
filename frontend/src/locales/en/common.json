@@ -196,6 +196,22 @@
   "approval.approved": "Approved",
   "approval.rejected": "Rejected",
 
+  "approval.approve.action": "Approve request",
+  "approval.approve.title": "Approve service request",
+  "approval.approve.description": "Approving this request allows the agent to start working and resolve the ticket.",
+  "approval.approve.body": "Once approved, the assigned agent will be able to resolve this ticket. This action is recorded in the audit log.",
+  "approval.approve.submit": "Approve",
+  "approval.approve.success": "Request approved",
+
+  "approval.reject.action": "Reject request",
+  "approval.reject.title": "Reject service request",
+  "approval.reject.description": "Rejecting this request blocks resolution. The reason is permanently audited.",
+  "approval.reject.reason_label": "Reason",
+  "approval.reject.reason_hint": "Required — explain why this request is being rejected.",
+  "approval.reject.reason_placeholder": "e.g., Request does not comply with procurement policy.",
+  "approval.reject.submit": "Reject",
+  "approval.reject.success": "Request rejected",
+
   "status.new": "New",
   "status.in_progress": "In Progress",
   "status.waiting": "Waiting",
@@ -271,6 +287,13 @@
   "command.empty": "No results",
   "command.group.navigate": "Navigate",
   "command.group.actions": "Actions",
+
+  "ticket.request_info.action": "I've responded — resume work",
+  "ticket.request_info.confirm_title": "Resume work?",
+  "ticket.request_info.confirm_description": "This will move the ticket back to In Progress.",
+  "ticket.request_info.confirm_body": "Confirm that you have responded to the agent's request and are ready for work to continue. The agent will be notified.",
+  "ticket.request_info.confirm_submit": "Yes, resume work",
+  "ticket.reopen.action": "Reopen ticket",
 
   "action.refresh": "Refresh",
   "action.cancel": "Cancel",

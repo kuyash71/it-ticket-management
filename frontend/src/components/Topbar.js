@@ -2,6 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
 import { useRole } from "../auth/useRole";
+import { parseJwtPayload } from "../lib/jwt";
 import { Avatar } from "./ui/Avatar";
 import { DropdownMenu } from "./ui/DropdownMenu";
 import { IconBell, IconLogOut, IconMoon, IconSearch, IconSettings, IconSun, IconUser } from "./ui/Icon";
@@ -27,8 +28,8 @@ const parseUsername = (token) => {
     if (!token)
         return "User";
     try {
-        const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
-        return payload.preferred_username ?? payload.name ?? payload.email ?? "User";
+        const payload = parseJwtPayload(token);
+        return (payload.preferred_username ?? payload.name ?? payload.email ?? "User");
     }
     catch {
         return "User";

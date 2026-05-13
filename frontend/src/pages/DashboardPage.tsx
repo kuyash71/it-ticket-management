@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthProvider";
+import { parseJwtPayload } from "../lib/jwt";
 import { useRole } from "../auth/useRole";
 import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -241,8 +242,8 @@ const WelcomeBanner = ({ onCreate }: { onCreate: () => void }) => {
   const userName = (() => {
     if (!token) return "";
     try {
-      const p = JSON.parse(atob(token.split(".")[1] ?? ""));
-      return p.given_name ?? p.name ?? p.preferred_username ?? "";
+      const p = parseJwtPayload(token);
+      return (p.given_name ?? p.name ?? p.preferred_username ?? "") as string;
     } catch { return ""; }
   })();
 
