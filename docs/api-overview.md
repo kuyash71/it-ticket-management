@@ -9,6 +9,8 @@
 API, Keycloak tarafından üretilen Bearer JWT token bekler.
 
 - Header: `Authorization: Bearer <access_token>`
+- Roller JWT içindeki `realm_access.roles` claim'inden çıkarılır.
+- Desteklenen roller: `CUSTOMER`, `AGENT`, `MANAGER`
 
 ---
 
@@ -16,8 +18,8 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
 
 ### Tickets
 
-- `GET /api/tickets` — Tüm ticketları döner.
-- `POST /api/tickets` — Yeni ticket oluşturur.
+- `GET /api/tickets` — Tüm ticketları döner. (CUSTOMER, AGENT, MANAGER)
+- `POST /api/tickets` — Yeni ticket oluşturur. (CUSTOMER, AGENT, MANAGER)
 
 ```json
 {
@@ -27,18 +29,41 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
 }
 ```
 
+**Alan kısıtları:** `title` ≤ 255 karakter, `description` ≤ 5000 karakter.
+
+- `GET /api/tickets/{id}` — Tek ticket getirir. (CUSTOMER, AGENT, MANAGER)
+
+- `PATCH /api/tickets/{id}/status` — Ticket durumunu değiştirir. (AGENT, MANAGER — CUSTOMER erişemez domain policy gereği)
+
+```json
+{ "status": "IN_PROGRESS" }
+```
+
+**İzin verilen geçişler (domain policy):**
+
+| From                  | To                    | İzin verilen roller |
+|-----------------------|-----------------------|---------------------|
+| NEW                   | IN_PROGRESS           | AGENT, MANAGER      |
+| NEW                   | WAITING_FOR_CUSTOMER  | AGENT, MANAGER      |
+| IN_PROGRESS           | WAITING_FOR_CUSTOMER  | AGENT, MANAGER      |
+| IN_PROGRESS           | RESOLVED              | AGENT, MANAGER      |
+| WAITING_FOR_CUSTOMER  | IN_PROGRESS           | AGENT, MANAGER      |
+| RESOLVED              | CLOSED                | AGENT, MANAGER      |
+
+Geçersiz geçişlerde `409 CONFLICT` döner.
+
 ---
 
-### Timeline (Sprint 3)
+### Timeline
 
-- `GET /api/tickets/{id}/timeline?role=AGENT`
-  - Ticket timeline'ını döner.
-  - `role=CUSTOMER`: yalnızca EXTERNAL olaylar görünür.
-  - `role=AGENT` / `MANAGER`: INTERNAL dahil tüm olaylar görünür.
+- `GET /api/tickets/{id}/timeline` — Ticket timeline'ını döner.
+  - `CUSTOMER`: yalnızca `EXTERNAL` olaylar görünür (JWT'den otomatik türetilir).
+  - `AGENT` / `MANAGER`: `INTERNAL` dahil tüm olaylar görünür.
 
-- `POST /api/tickets/{id}/comments` — Yorum ekler.
+- `POST /api/tickets/{id}/comments` — Yorum ekler. (CUSTOMER, AGENT, MANAGER)
   - `parentId` ile sınırsız derinlikte thread oluşturulabilir.
   - Yalnızca `COMMENT` tipindeki olaylara reply verilebilir.
+  - `CUSTOMER`, `INTERNAL` görünürlüklü yorum ekleyemez.
 
 ```json
 {
@@ -48,7 +73,9 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
 }
 ```
 
-- `POST /api/tickets/{id}/worklogs` — Çalışma günlüğü ekler (agent/manager).
+**Alan kısıtları:** `body` ≤ 10 000 karakter.
+
+- `POST /api/tickets/{id}/worklogs` — Çalışma günlüğü ekler. (AGENT, MANAGER)
 
 ```json
 {
@@ -57,12 +84,17 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
 }
 ```
 
+**Alan kısıtları:** `body` ≤ 10 000 karakter.
+
 ---
 
-### Attachments (Sprint 3)
+### Attachments
 
-- `GET /api/tickets/{id}/attachments?role=AGENT` — Ekli dosyaları listeler.
-- `POST /api/tickets/{id}/attachments` — Dosya metadata'sını kaydeder.
+- `GET /api/tickets/{id}/attachments` — Ekli dosyaları listeler.
+  - `CUSTOMER`: yalnızca `EXTERNAL` dosyalar görünür.
+  - `AGENT` / `MANAGER`: tüm dosyalar görünür.
+
+- `POST /api/tickets/{id}/attachments` — Dosya metadata'sını kaydeder. (CUSTOMER, AGENT, MANAGER)
 
 **Policy:**
 - Max boyut: 10 MB
@@ -75,6 +107,27 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
   "sizeBytes": 204800,
   "storageKey": "uploads/2026/ticket-uuid/screenshot.png",
   "visibility": "EXTERNAL"
+}
+```
+
+**Alan kısıtları:** `fileName` ≤ 255, `mimeType` ≤ 127, `storageKey` ≤ 512 karakter.
+
+---
+
+### Reports (Sprint 5)
+
+- `GET /api/reports/summary` — Özet rapor döner. **(AGENT, MANAGER — CUSTOMER erişemez)**
+
+```json
+{
+  "openTickets": 8,
+  "totalTickets": 15,
+  "byStatus": { "NEW": 3, "IN_PROGRESS": 4, "WAITING_FOR_CUSTOMER": 1, "RESOLVED": 7 },
+  "byType":   { "INCIDENT": 9, "SERVICE_REQUEST": 6 },
+  "resolvedTotal": 7,
+  "slaBreachCount": 2,
+  "slaBreachRatePercent": 28.6,
+  "avgResolutionHours": 4.2
 }
 ```
 
@@ -95,7 +148,7 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
 ```json
 {
   "id": "f284e8f8-7f23-4f20-9f06-94416fbf4d58",
-  "type": "IncidentTicket",
+  "type": "INCIDENT",
   "title": "VPN erişim problemi",
   "description": "Kullanıcı VPN'e bağlanamıyor",
   "status": "NEW",
@@ -146,6 +199,8 @@ API, Keycloak tarafından üretilen Bearer JWT token bekler.
 | Internal Worklog | ✗        | ✓     | ✓       |
 | System Event     | ✓        | ✓     | ✓       |
 
+> Görünürlük JWT token'daki rol bilgisinden türetilir; query parameter ile override edilemez.
+
 ## Comment Threading
 
 Yorumlar `parentId` alanıyla **sınırsız derinlikte** zincir oluşturabilir (adjacency list modeli).
@@ -159,13 +214,13 @@ Kurallar:
 
 ## Notification Kuralları (MVP Backend)
 
-| Event           | Bildirim        | Alıcı    |
-|-----------------|-----------------|----------|
-| SLA_BREACH_RISK | Her zaman       | Manager  |
-| SLA_BREACHED    | Her zaman       | Manager  |
-| STATUS_CHANGED  | RESOLVED / WAITING_FOR_CUSTOMER / CLOSED | Customer |
-| ATTACHMENT_ADDED| EXTERNAL ise    | Customer |
-| TICKET_CREATED  | assignedTo varsa| Agent    |
+| Event            | Bildirim                                  | Alıcı    |
+|------------------|-------------------------------------------|----------|
+| SLA_BREACH_RISK  | Her zaman                                 | Manager  |
+| SLA_BREACHED     | Her zaman                                 | Manager  |
+| STATUS_CHANGED   | RESOLVED / WAITING_FOR_CUSTOMER / CLOSED  | Customer |
+| ATTACHMENT_ADDED | EXTERNAL ise                              | Customer |
+| TICKET_CREATED   | assignedTo varsa                          | Agent    |
 
 ---
 

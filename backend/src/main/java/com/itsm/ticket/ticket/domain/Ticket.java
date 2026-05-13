@@ -48,6 +48,29 @@ public class Ticket {
     @Column(nullable = false)
     private Instant updatedAt;
 
+    private Instant resolvedAt;
+
+    private Instant closedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String resolutionNote;
+
+    @Column(columnDefinition = "TEXT")
+    private String closeReason;
+
+    /** Username of the currently assigned agent (Doc §11 TAKE_OWNERSHIP/REASSIGN). */
+    @Column
+    private String assigneeId;
+
+    /**
+     * Highest SLA escalation level observed for this ticket (NORMAL→WARNING→RISK→BREACH).
+     * Used by the scheduler to avoid emitting the same SLABreachRisk/SLABreached event twice.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column
+    private com.itsm.ticket.ticket.domain.enums.SLAEscalationLevel slaLevel
+            = com.itsm.ticket.ticket.domain.enums.SLAEscalationLevel.NORMAL;
+
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "sla_clock_id", referencedColumnName = "id")
     private SLAClock slaClock;
@@ -74,11 +97,15 @@ public class Ticket {
     protected Ticket() {}
 
     public Ticket(String title, String description, TicketType type) {
+        this(title, description, type, TicketUrgency.LOW);
+    }
+
+    public Ticket(String title, String description, TicketType type, TicketUrgency urgency) {
         this.id = UUID.randomUUID();
         this.title = title;
         this.description = description;
         this.status = TicketStatus.NEW;
-        this.urgency = TicketUrgency.LOW;
+        this.urgency = urgency != null ? urgency : TicketUrgency.LOW;
         this.impact = TicketImpact.LOW;
         this.type = type;
         applyPriority(new TicketPriorityTransition());
@@ -103,13 +130,178 @@ public class Ticket {
     }
 
     public void transitionTo(TicketStatus target, TicketRole actor, StatusTransitionPolicy policy) {
+        // Verifikasyon gerektiren transition'lar dedicated metodlardan gitmeli.
+        // Doc §4.1: RESOLVED requires resolution note; CLOSED requires customer confirm or manager force-close + reason.
+        if (target == TicketStatus.RESOLVED) {
+            throw new IllegalArgumentException("RESOLVED transition requires resolutionNote — use resolve()");
+        }
+        if (target == TicketStatus.CLOSED) {
+            throw new IllegalArgumentException("CLOSED transition requires actor verification — use confirmClose()/forceClose()");
+        }
         policy.validateTicket(this.status, target, actor);
         switch (target) {
             case IN_PROGRESS -> this.slaClock.resume();
-            case RESOLVED -> this.slaClock.stop();
             case WAITING_FOR_CUSTOMER -> this.slaClock.pause();
         }
         this.status = target;
+    }
+
+    /**
+     * RESOLVED transition with mandatory resolution note (Doc §4.1).
+     * Audit + system event are produced by the service layer.
+     */
+    public void resolve(TicketRole actor, String note, StatusTransitionPolicy policy) {
+        if (note == null || note.isBlank()) {
+            throw new IllegalArgumentException("Resolution note is required to resolve a ticket");
+        }
+        policy.validateTicket(this.status, TicketStatus.RESOLVED, actor);
+        this.slaClock.stop();
+        this.status = TicketStatus.RESOLVED;
+        this.resolutionNote = note.trim();
+        this.resolvedAt = Instant.now();
+    }
+
+    /**
+     * Customer confirms closure (Doc §4.1 'Customer confirms OR timeout').
+     * Only valid from RESOLVED; only CUSTOMER role.
+     */
+    public void confirmClose(TicketRole actor, StatusTransitionPolicy policy) {
+        if (actor != TicketRole.CUSTOMER) {
+            throw new IllegalArgumentException("Only the customer can confirm closure");
+        }
+        if (this.status != TicketStatus.RESOLVED) {
+            throw new IllegalArgumentException("Closure can only be confirmed from RESOLVED status");
+        }
+        policy.validateTicket(this.status, TicketStatus.CLOSED, actor);
+        this.status = TicketStatus.CLOSED;
+        this.closedAt = Instant.now();
+        this.closeReason = "Customer confirmed";
+    }
+
+    /**
+     * Manager-only status override (Doc §5.4.3 "Any → IN_PROGRESS by Manager: kritik risk
+     * durumunda müdahale; gerekçe zorunludur"). Bypasses the transition policy entirely —
+     * reason+audit are mandatory and produced by the service layer.
+     */
+    public void overrideStatus(TicketRole actor, TicketStatus target, String reason) {
+        if (actor != TicketRole.MANAGER) {
+            throw new IllegalArgumentException("Only managers can override the ticket status");
+        }
+        if (target == null) {
+            throw new IllegalArgumentException("Target status is required");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Override requires a reason");
+        }
+        if (this.status == TicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Cannot override a closed ticket — use a new ticket instead");
+        }
+        if (this.status == target) {
+            throw new IllegalArgumentException("Ticket is already in the requested status");
+        }
+        // SLA clock follows the new state.
+        switch (target) {
+            case IN_PROGRESS -> this.slaClock.resume();
+            case WAITING_FOR_CUSTOMER -> this.slaClock.pause();
+            case RESOLVED, CLOSED -> this.slaClock.stop();
+            default -> { /* NEW: no clock change */ }
+        }
+        if (target == TicketStatus.CLOSED) {
+            this.closedAt = Instant.now();
+            this.closeReason = reason.trim();
+        }
+        if (target == TicketStatus.RESOLVED && this.resolutionNote == null) {
+            // Override into RESOLVED still requires a note — borrow the override reason.
+            this.resolutionNote = reason.trim();
+            this.resolvedAt = Instant.now();
+        }
+        this.status = target;
+    }
+
+    /**
+     * Manager force-close with reason (Doc §9 'Manager override: reason + audit zorunlu').
+     * Allowed from any non-CLOSED status.
+     */
+    public void forceClose(TicketRole actor, String reason) {
+        if (actor != TicketRole.MANAGER) {
+            throw new IllegalArgumentException("Only managers can force-close tickets");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Force-close requires a reason");
+        }
+        if (this.status == TicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Ticket is already closed");
+        }
+        this.slaClock.stop();
+        this.status = TicketStatus.CLOSED;
+        this.closedAt = Instant.now();
+        this.closeReason = reason.trim();
+    }
+
+    /**
+     * Agent (or manager) self-assigns a NEW ticket (Doc §11 TAKE_OWNERSHIP).
+     * Transitions NEW → IN_PROGRESS atomically and sets the assignee.
+     */
+    public void takeOwnership(TicketRole actor, String agentUsername, StatusTransitionPolicy policy) {
+        if (actor != TicketRole.AGENT && actor != TicketRole.MANAGER) {
+            throw new IllegalArgumentException("Only agents and managers can take ownership of a ticket");
+        }
+        if (agentUsername == null || agentUsername.isBlank()) {
+            throw new IllegalArgumentException("Assignee username is required");
+        }
+        if (this.status != TicketStatus.NEW && this.status != TicketStatus.WAITING_FOR_CUSTOMER) {
+            throw new IllegalArgumentException("Ownership can only be taken from NEW or WAITING_FOR_CUSTOMER status");
+        }
+        // For NEW tickets, also flip status to IN_PROGRESS.
+        if (this.status == TicketStatus.NEW) {
+            policy.validateTicket(this.status, TicketStatus.IN_PROGRESS, actor);
+            this.slaClock.resume();
+            this.status = TicketStatus.IN_PROGRESS;
+        }
+        this.assigneeId = agentUsername.trim();
+    }
+
+    /**
+     * Manager reassigns the ticket to another agent with a mandatory reason (Doc §9).
+     */
+    public String reassign(TicketRole actor, String newAssignee, String reason) {
+        if (actor != TicketRole.MANAGER) {
+            throw new IllegalArgumentException("Only managers can reassign a ticket");
+        }
+        if (newAssignee == null || newAssignee.isBlank()) {
+            throw new IllegalArgumentException("New assignee is required");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Reassign requires a reason");
+        }
+        if (this.status == TicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Cannot reassign a closed ticket");
+        }
+        String previous = this.assigneeId;
+        this.assigneeId = newAssignee.trim();
+        return previous;
+    }
+
+    /**
+     * Change priority via impact/urgency, with reason (Doc §3.2 'audit zorunlu').
+     * Returns the previous priority for the service layer to audit.
+     */
+    public TicketPriority changePriority(TicketImpact newImpact, TicketUrgency newUrgency,
+                                         String reason, TicketRole actor) {
+        if (actor == TicketRole.CUSTOMER) {
+            throw new IllegalArgumentException("Customers cannot change priority directly");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("Priority change requires a reason");
+        }
+        if (this.status == TicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Cannot change priority on a closed ticket");
+        }
+        TicketPriority previous = this.priority;
+        if (newImpact != null) this.impact = newImpact;
+        if (newUrgency != null) this.urgency = newUrgency;
+        applyPriority(new TicketPriorityTransition());
+        return previous;
     }
 
     public TicketEvent addComment(String actorId, String body,
@@ -118,8 +310,7 @@ public class Ticket {
             TicketEvent parent = events.stream()
                     .filter(e -> e.getId().equals(parentId))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Parent comment not found: " + parentId));
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid parent comment"));
             if (parent.getEventType() != TicketEventType.COMMENT) {
                 throw new IllegalArgumentException("Can only reply to COMMENT type events");
             }
@@ -168,6 +359,29 @@ public class Ticket {
     public TicketUrgency getUrgency() { return urgency; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public Instant getResolvedAt() { return resolvedAt; }
+    public Instant getClosedAt() { return closedAt; }
+    public String getResolutionNote() { return resolutionNote; }
+    public String getCloseReason() { return closeReason; }
+    public String getAssigneeId() { return assigneeId; }
+
+    /**
+     * Total elapsed seconds for SLA purposes, including time currently running since the last resume.
+     * SLA-stopped tickets return the persisted elapsed value as-is.
+     */
+    public long currentElapsedSeconds() {
+        if (slaClock == null) return 0;
+        long base = slaClock.getElapsed();
+        if (slaClock.getState() == com.itsm.ticket.ticket.domain.enums.SLAClockState.RUNNING
+                && slaClock.getStartedAt() != null) {
+            base += java.time.Duration.between(slaClock.getStartedAt(), Instant.now()).getSeconds();
+        }
+        return Math.max(base, 0);
+    }
+    public com.itsm.ticket.ticket.domain.enums.SLAEscalationLevel getSlaLevel() { return slaLevel; }
+    public void setSlaLevel(com.itsm.ticket.ticket.domain.enums.SLAEscalationLevel level) {
+        this.slaLevel = level;
+    }
     public SLAClock getSlaClock() { return slaClock; }
     public TicketType getType() { return type; }
     public List<TicketEvent> getEvents() { return Collections.unmodifiableList(events); }

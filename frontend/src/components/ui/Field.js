@@ -1,0 +1,2 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+export const Field = ({ label, hint, error, htmlFor, required, children }) => (_jsxs("div", { className: "field", children: [label && (_jsxs("label", { className: "field-label", htmlFor: htmlFor, children: [label, required && (_jsx("span", { "aria-hidden": "true", style: { color: "var(--color-danger)", marginLeft: 2 }, children: "*" }))] })), children, error ? _jsx("div", { className: "field-error", children: error }) : hint ? _jsx("div", { className: "field-hint", children: hint }) : null] }));

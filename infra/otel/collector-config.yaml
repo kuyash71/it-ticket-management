@@ -8,7 +8,8 @@ processors:
   batch:
 
 exporters:
-  debug: {}
+  debug:
+    verbosity: normal
 
 service:
   pipelines:

@@ -9,16 +9,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class TicketWorkflowService {
 
     private static final Logger log = LoggerFactory.getLogger(TicketWorkflowService.class);
 
-    @Autowired
+    @Autowired(required = false)
     private Processes processes;
 
     public String startTicketLifecycle(Map<String, Object> variables) {
+        if (processes == null) {
+            String fallbackId = UUID.randomUUID().toString();
+            log.warn("Kogito Processes bean not available — workflow engine disabled. Ticket will run without process tracking (instanceId={})", fallbackId);
+            return fallbackId;
+        }
+
         String ticketType = (String) variables.get("ticketType");
 
         String processId;

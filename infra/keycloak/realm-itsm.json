@@ -1,6 +1,7 @@
 {
   "realm": "itsm",
   "enabled": true,
+  "loginTheme": "itsm",
   "roles": {
     "realm": [
       { "name": "customer" },
@@ -26,6 +27,41 @@
       "publicClient": false,
       "protocol": "openid-connect",
       "bearerOnly": true
+    }
+  ],
+  "users": [
+    {
+      "username": "customer1",
+      "enabled": true,
+      "email": "customer1@itsm.local",
+      "firstName": "Ali",
+      "lastName": "Yılmaz",
+      "credentials": [
+        { "type": "password", "value": "customer1", "temporary": false }
+      ],
+      "realmRoles": ["customer"]
+    },
+    {
+      "username": "agent1",
+      "enabled": true,
+      "email": "agent1@itsm.local",
+      "firstName": "Ayşe",
+      "lastName": "Kaya",
+      "credentials": [
+        { "type": "password", "value": "agent1", "temporary": false }
+      ],
+      "realmRoles": ["agent"]
+    },
+    {
+      "username": "manager1",
+      "enabled": true,
+      "email": "manager1@itsm.local",
+      "firstName": "Mehmet",
+      "lastName": "Demir",
+      "credentials": [
+        { "type": "password", "value": "manager1", "temporary": false }
+      ],
+      "realmRoles": ["manager"]
     }
   ]
 }

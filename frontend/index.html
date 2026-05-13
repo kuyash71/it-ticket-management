@@ -1,9 +1,24 @@
 <!doctype html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>IT Ticket Management</title>
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="ITSM — IT Service Management" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>ITSM · IT Service Management</title>
+    <script>
+      // Avoid flash of wrong theme by applying saved preference before React renders
+      (function () {
+        try {
+          var t = localStorage.getItem("itsm.theme") || "system";
+          var resolved = t === "system"
+            ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+            : t;
+          document.documentElement.setAttribute("data-theme", resolved);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

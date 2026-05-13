@@ -1,0 +1,20 @@
+{
+  "index_patterns": ["itsm-logs*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0,
+      "index.lifecycle.name": "itsm-logs-policy"
+    },
+    "mappings": {
+      "properties": {
+        "eventType": { "type": "keyword" },
+        "timestamp":  { "type": "date" },
+        "traceId":    { "type": "keyword" },
+        "ticketId":   { "type": "keyword" },
+        "actor":      { "type": "keyword" },
+        "payload":    { "type": "object", "dynamic": true }
+      }
+    }
+  }
+}

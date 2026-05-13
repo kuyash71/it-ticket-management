@@ -1,12 +1,16 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren } from "react";
 
+import { setBearerToken } from "../api/http";
 import { keycloak } from "./keycloak";
+
+export type UserRole = "CUSTOMER" | "AGENT" | "MANAGER";
 
 type AuthContextValue = {
   initialized: boolean;
   authenticated: boolean;
   token?: string;
+  roles: UserRole[];
   login: () => void;
   logout: () => void;
 };
@@ -17,17 +21,33 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [initialized, setInitialized] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [token, setToken] = useState<string | undefined>(undefined);
+  const [roles, setRoles] = useState<UserRole[]>([]);
 
   useEffect(() => {
     const boot = async () => {
       const result = await keycloak.init({
-        onLoad: "check-sso",
+        onLoad: "login-required",
         pkceMethod: "S256",
         checkLoginIframe: false
       });
 
       setAuthenticated(result);
       setToken(keycloak.token);
+      setBearerToken(keycloak.token);
+
+      keycloak.onAuthRefreshSuccess = () => {
+        setToken(keycloak.token);
+        setBearerToken(keycloak.token);
+      };
+
+      const realmRoles = (keycloak.realmAccess?.roles ?? []) as string[];
+      const known: UserRole[] = ["CUSTOMER", "AGENT", "MANAGER"];
+      setRoles(
+        realmRoles
+          .map((r) => r.toUpperCase())
+          .filter((r): r is UserRole => known.includes(r as UserRole))
+      );
+
       setInitialized(true);
     };
 
@@ -39,6 +59,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       initialized,
       authenticated,
       token,
+      roles,
       login: () => {
         void keycloak.login();
       },
@@ -46,7 +67,7 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         void keycloak.logout();
       }
     }),
-    [authenticated, initialized, token]
+    [authenticated, initialized, token, roles]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

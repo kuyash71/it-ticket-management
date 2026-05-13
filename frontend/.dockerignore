@@ -1,0 +1,13 @@
+node_modules
+src
+public
+*.log
+*.md
+.git
+.gitignore
+.vscode
+.idea
+tsconfig.json
+vite.config.ts
+vite.config.js
+package-lock.json

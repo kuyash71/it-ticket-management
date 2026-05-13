@@ -9,6 +9,7 @@
     "lint": "npm run typecheck",
     "test": "node -e \"console.log('No frontend tests yet')\"",
     "build": "tsc -p tsconfig.json && vite build",
+    "docker:prepare": "npm ci && npm run build",
     "preview": "vite preview"
   },
   "dependencies": {

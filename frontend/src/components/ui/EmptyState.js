@@ -1,0 +1,2 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+export const EmptyState = ({ icon, title, description, action }) => (_jsxs("div", { className: "empty-state", children: [icon && _jsx("div", { className: "empty-state-icon", children: icon }), _jsx("div", { className: "empty-state-title", children: title }), description && _jsx("div", { className: "empty-state-description", children: description }), action && _jsx("div", { style: { marginTop: "var(--space-3)" }, children: action })] }));

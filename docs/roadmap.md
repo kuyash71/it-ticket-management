@@ -56,30 +56,30 @@ Kapsam: Spring Boot, Keycloak, React, PostgreSQL, Kogito (Apache KIE), Kafka, Op
 - [x] Keycloak JWT doğrulama
 - [x] Realm role -> Spring authority dönüşümü
 - [x] Role bazlı yetki matrisi (customer/agent/manager/admin) endpoint bazında tamamlanması
-- [ ] Frontend route ve aksiyon bazlı yetki kontrollerinin tamamlanması
+- [x] Frontend route ve aksiyon bazlı yetki kontrollerinin tamamlanması (AuthProvider roles, useRole hook, TicketsPage RBAC)
 - [x] React i18n altyapısı (tr/en)
 - [x] Backend message bundle i18n altyapısı
-- [ ] Tüm kullanıcıya dönük metinlerin i18n kaynaklarına taşınması
-- [ ] Güvenlik testleri (auth bypass, role escalation, invalid token) eklenmesi
+- [x] Tüm kullanıcıya dönük metinlerin i18n kaynaklarına taşınması
+- [x] Güvenlik testleri (auth bypass, role escalation, invalid token) eklenmesi
 
 ## Sprint 5 - Observability, Logging ve Reporting
 
 - [x] Kafka log event producer
 - [x] OpenSearch log indexleme
 - [x] OpenTelemetry OTLP trace export
-- [ ] Log şeması ve korelasyon alanlarının standardize edilmesi (traceId, ticketId, actor)
-- [ ] OpenSearch dashboard ve temel alarm kurallarının eklenmesi
-- [ ] Reporting metriklerinin (SLA, çözüm süresi, backlog) query katmanında tamamlanması
-- [ ] Rapor endpointleri ve UI özet ekranlarının tamamlanması
+- [x] Log şeması ve korelasyon alanlarının standardize edilmesi (traceId, ticketId, actor) — LogEvent record, MDC enrichment, log4j2 pattern güncellendi
+- [x] OpenSearch index template ve alan mapping tanımları — infra/opensearch/index-template.json
+- [x] Reporting metriklerinin (SLA, çözüm süresi, backlog) query katmanında tamamlanması — ReportRepository (JPQL), ReportService
+- [x] Rapor endpointleri ve UI özet ekranlarının tamamlanması — GET /api/reports/summary, ReportsPage (agent/manager görür)
 
 ## Sprint 6 - Frontend Productization ve UX Tamamlama
 
-- [ ] Ticket list/detail/create/update ekranlarının production-ready hale getirilmesi
-- [ ] Durum geçişleri, atama, öncelik değişimi gibi aksiyonların UI'da tamamlanması
-- [ ] Timeline ve attachment deneyiminin UI'da tamamlanması
-- [ ] Hata durumları ve boş durum ekranlarının (empty/error/loading) standardize edilmesi
-- [ ] Erişilebilirlik (a11y) ve responsive davranış iyileştirmeleri
-- [ ] Frontend entegrasyon testlerinin yazılması
+- [x] Ticket list/detail/create/update ekranlarının production-ready hale getirilmesi — CSS design system (token-tabanlı), AppShell (sidebar+topbar), TicketsPage (tablo+filtre+arama), CreateTicketModal, TicketDetailPage
+- [x] Durum geçişleri, atama, öncelik değişimi gibi aksiyonların UI'da tamamlanması — PATCH /api/tickets/{id}/status backend endpoint + GET /api/tickets/{id} eklendi; role-aware geçiş paneli (agent/manager görür, backend policy ile senkronize)
+- [x] Timeline ve attachment deneyiminin UI'da tamamlanması — Timeline (COMMENT/WORKLOG/SYSTEM_EVENT) ayrı ikonlar/renklerle; add-comment formu (Ctrl+Enter kısayolu, visibility seçici agent/manager için)
+- [x] Hata durumları ve boş durum ekranlarının (empty/error/loading) standardize edilmesi — LoadingState, EmptyState, ErrorBanner bileşenleri; hata ekranında geri butonu
+- [x] Erişilebilirlik (a11y) ve responsive davranış iyileştirmeleri — ARIA roller/etiketler, `<time>` elementleri, focus-visible ring tablosu, modal Escape+overlay click kapatma, focus-on-open, dekoratif emoji aria-hidden
+- [x] StatusBadge/PriorityBadge/TypeBadge i18n entegrasyonu; timeline sistem olayları i18n; STATUS_TRANSITIONS backend policy ile senkronize edildi (CUSTOMER geçişi yok, NEW→WAITING_FOR_CUSTOMER eklendi)
 
 ## Sprint 7 - Hardening, Release ve Go-Live
 

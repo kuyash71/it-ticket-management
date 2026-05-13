@@ -31,13 +31,16 @@ public class TicketStatusTransition implements StatusTransitionPolicy {
             new TransitionKey(TicketStatus.IN_PROGRESS, TicketStatus.RESOLVED),
             Set.of(TicketRole.AGENT, TicketRole.MANAGER)
         );
+        // Customer reply moves it back to IN_PROGRESS (Doc §4.1 "Customer replied")
         transitions.put(
             new TransitionKey(TicketStatus.WAITING_FOR_CUSTOMER, TicketStatus.IN_PROGRESS),
-            Set.of(TicketRole.AGENT, TicketRole.MANAGER)
+            Set.of(TicketRole.AGENT, TicketRole.MANAGER, TicketRole.CUSTOMER)
         );
+        // Closure only via CUSTOMER confirmClose() (Doc §4.1 "Customer confirms").
+        // Manager force-close bypasses this policy entirely.
         transitions.put(
             new TransitionKey(TicketStatus.RESOLVED, TicketStatus.CLOSED),
-            Set.of(TicketRole.AGENT, TicketRole.MANAGER)
+            Set.of(TicketRole.CUSTOMER)
         );
 
     }

@@ -2,19 +2,24 @@ server:
   port: 8080
 
 spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 12MB
   datasource:
-    url: jdbc:postgresql://localhost:5433/itsm
-    username: itsm
-    password: itsm
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/itsm}
+    username: ${DB_USERNAME:itsm}
+    password: ${DB_PASSWORD:itsm}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${DDL_AUTO:update}
     properties:
       hibernate:
         format_sql: true
     open-in-view: false
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -25,8 +30,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://keycloak:8080/realms/itsm
-          jwk-set-uri: http://keycloak:8080/realms/itsm/protocol/openid-connect/certs
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://keycloak:8080/realms/itsm}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/itsm/protocol/openid-connect/certs}
 
 management:
   endpoints:
@@ -46,8 +51,13 @@ springdoc:
 
 observability:
   opensearch:
-    url: http://localhost:9200
-    index: itsm-logs
+    url: ${OPENSEARCH_URL:http://localhost:9200}
+    index: ${OPENSEARCH_INDEX:itsm-logs}
+
+itsm:
+  attachments:
+    storage-path: ${ATTACHMENT_STORAGE_PATH:/var/itsm/attachments}
+    max-size-bytes: 10485760  # 10 MB (Doc §7)
 
 logging:
   config: classpath:log4j2-spring.xml

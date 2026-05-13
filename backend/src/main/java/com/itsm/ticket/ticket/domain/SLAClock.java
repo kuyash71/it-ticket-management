@@ -33,21 +33,24 @@ public class SLAClock {
     }
 
     public void pause() {
+        if (this.state == SLAClockState.STOPPED) return;
+        if (this.state == SLAClockState.PAUSED) return;
         this.pausedAt = Instant.now();
-        if(this.state == SLAClockState.RUNNING) {
-            this.elapsed += Duration.between(startedAt, pausedAt).getSeconds();
-        }
+        this.elapsed += Duration.between(startedAt, pausedAt).getSeconds();
         this.state = SLAClockState.PAUSED;
     }
 
     public void resume() {
+        if (this.state == SLAClockState.STOPPED) return;
+        if (this.state == SLAClockState.RUNNING) return;
         this.startedAt = Instant.now();
         this.state = SLAClockState.RUNNING;
     }
 
     public void stop() {
+        if (this.state == SLAClockState.STOPPED) return;
         this.stoppedAt = Instant.now();
-        if(this.state == SLAClockState.RUNNING) {
+        if (this.state == SLAClockState.RUNNING) {
             this.elapsed += Duration.between(startedAt, stoppedAt).getSeconds();
         }
         this.state = SLAClockState.STOPPED;

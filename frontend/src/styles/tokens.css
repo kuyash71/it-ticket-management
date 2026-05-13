@@ -1,0 +1,259 @@
+/* ============================================================
+   ITSM — Design Tokens
+   Linear / Notion inspired. Light + Dark. Single source of truth.
+   ============================================================ */
+
+@layer tokens {
+  :root {
+    /* ── Brand ─────────────────────────────────────────────── */
+    --brand-50:  #eef2ff;
+    --brand-100: #e0e7ff;
+    --brand-200: #c7d2fe;
+    --brand-300: #a5b4fc;
+    --brand-400: #818cf8;
+    --brand-500: #6366f1;
+    --brand-600: #4f46e5;
+    --brand-700: #4338ca;
+    --brand-800: #3730a3;
+    --brand-900: #312e81;
+
+    /* ── Neutral (Linear-style cool grays) ─────────────────── */
+    --gray-50:  #fafafa;
+    --gray-100: #f4f4f5;
+    --gray-150: #ececef;
+    --gray-200: #e4e4e7;
+    --gray-300: #d4d4d8;
+    --gray-400: #a1a1aa;
+    --gray-500: #71717a;
+    --gray-600: #52525b;
+    --gray-700: #3f3f46;
+    --gray-800: #27272a;
+    --gray-850: #1f1f23;
+    --gray-900: #18181b;
+    --gray-950: #0a0a0b;
+
+    /* ── Semantic — status palette (subtle, not loud) ──────── */
+    --status-new-bg:        #eff6ff;
+    --status-new-fg:        #1d4ed8;
+    --status-new-border:    #bfdbfe;
+
+    --status-progress-bg:   #fefce8;
+    --status-progress-fg:   #a16207;
+    --status-progress-border:#fde68a;
+
+    --status-waiting-bg:    #faf5ff;
+    --status-waiting-fg:    #7e22ce;
+    --status-waiting-border:#e9d5ff;
+
+    --status-resolved-bg:   #f0fdf4;
+    --status-resolved-fg:   #15803d;
+    --status-resolved-border:#bbf7d0;
+
+    --status-closed-bg:     #f4f4f5;
+    --status-closed-fg:     #52525b;
+    --status-closed-border: #e4e4e7;
+
+    /* ── Priority palette ──────────────────────────────────── */
+    --priority-low:      #71717a;
+    --priority-medium:   #3b82f6;
+    --priority-high:     #f59e0b;
+    --priority-critical: #ef4444;
+
+    /* ── Feedback ──────────────────────────────────────────── */
+    --color-success:  #16a34a;
+    --color-warning:  #f59e0b;
+    --color-danger:   #dc2626;
+    --color-info:     #2563eb;
+
+    /* ── Light theme (default) ─────────────────────────────── */
+    --bg:             #ffffff;
+    --bg-subtle:      #fafafa;
+    --bg-muted:       #f4f4f5;
+    --bg-elevated:    #ffffff;
+    --bg-hover:       #f4f4f5;
+    --bg-active:      #ececef;
+
+    --surface:        #ffffff;
+    --surface-2:      #fafafa;
+    --surface-overlay:#ffffff;
+
+    --border:         #e4e4e7;
+    --border-strong:  #d4d4d8;
+    --border-subtle:  #ececef;
+
+    --text:           #18181b;
+    --text-secondary: #52525b;
+    --text-muted:     #71717a;
+    --text-disabled:  #a1a1aa;
+    --text-inverse:   #ffffff;
+
+    --accent:         var(--brand-600);
+    --accent-hover:   var(--brand-700);
+    --accent-fg:      #ffffff;
+    --accent-soft:    var(--brand-50);
+    --accent-soft-hover: var(--brand-100);
+    --accent-border:  var(--brand-200);
+
+    --ring:           color-mix(in oklab, var(--brand-600) 35%, transparent);
+    --ring-offset:    var(--bg);
+
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px -1px rgb(0 0 0 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.08), 0 8px 10px -6px rgb(0 0 0 / 0.06);
+    --shadow-popover: 0 8px 24px -8px rgb(0 0 0 / 0.18), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+
+    --backdrop: rgb(15 15 18 / 0.45);
+
+    /* ── Spacing scale (4px base) ──────────────────────────── */
+    --space-0:  0;
+    --space-1:  0.25rem;   /*  4 */
+    --space-2:  0.5rem;    /*  8 */
+    --space-3:  0.75rem;   /* 12 */
+    --space-4:  1rem;      /* 16 */
+    --space-5:  1.25rem;   /* 20 */
+    --space-6:  1.5rem;    /* 24 */
+    --space-8:  2rem;      /* 32 */
+    --space-10: 2.5rem;    /* 40 */
+    --space-12: 3rem;      /* 48 */
+    --space-16: 4rem;      /* 64 */
+    --space-20: 5rem;      /* 80 */
+    --space-24: 6rem;      /* 96 */
+
+    /* ── Radius ────────────────────────────────────────────── */
+    --radius-xs:   2px;
+    --radius-sm:   4px;
+    --radius-md:   6px;
+    --radius-lg:   8px;
+    --radius-xl:   12px;
+    --radius-2xl:  16px;
+    --radius-full: 9999px;
+
+    /* ── Typography ────────────────────────────────────────── */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+                 "Inter", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Menlo",
+                 "Consolas", monospace;
+
+    --text-xs:   0.75rem;     /* 12 */
+    --text-sm:   0.8125rem;   /* 13 */
+    --text-base: 0.875rem;    /* 14 — body */
+    --text-md:   0.9375rem;   /* 15 */
+    --text-lg:   1rem;        /* 16 */
+    --text-xl:   1.125rem;    /* 18 */
+    --text-2xl:  1.25rem;     /* 20 */
+    --text-3xl:  1.5rem;      /* 24 */
+    --text-4xl:  1.875rem;    /* 30 */
+
+    --leading-tight:  1.25;
+    --leading-snug:   1.4;
+    --leading-normal: 1.55;
+    --leading-loose:  1.75;
+
+    --tracking-tight:  -0.015em;
+    --tracking-tighter:-0.025em;
+    --tracking-normal: 0;
+    --tracking-wide:   0.025em;
+
+    --weight-regular:  400;
+    --weight-medium:   500;
+    --weight-semibold: 600;
+    --weight-bold:     700;
+
+    /* ── Layout sizing ─────────────────────────────────────── */
+    --sidebar-width:           240px;
+    --sidebar-collapsed-width: 60px;
+    --topbar-height:           52px;
+    --container-max:           1400px;
+
+    /* ── Motion ────────────────────────────────────────────── */
+    --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --duration-fast:   120ms;
+    --duration-base:   180ms;
+    --duration-slow:   260ms;
+
+    --z-base:     1;
+    --z-sticky:   10;
+    --z-dropdown: 50;
+    --z-modal:    100;
+    --z-toast:    1000;
+
+    color-scheme: light;
+  }
+
+  /* ── Dark theme ──────────────────────────────────────────── */
+  :root[data-theme="dark"] {
+    --bg:             #0a0a0b;
+    --bg-subtle:      #131316;
+    --bg-muted:       #18181b;
+    --bg-elevated:    #18181b;
+    --bg-hover:       #1f1f23;
+    --bg-active:      #27272a;
+
+    --surface:        #131316;
+    --surface-2:      #18181b;
+    --surface-overlay:#1f1f23;
+
+    --border:         #27272a;
+    --border-strong:  #3f3f46;
+    --border-subtle:  #1f1f23;
+
+    --text:           #e4e4e7;
+    --text-secondary: #a1a1aa;
+    --text-muted:     #71717a;
+    --text-disabled:  #52525b;
+    --text-inverse:   #0a0a0b;
+
+    --accent:         var(--brand-500);
+    --accent-hover:   var(--brand-400);
+    --accent-fg:      #ffffff;
+    --accent-soft:    color-mix(in oklab, var(--brand-500) 14%, transparent);
+    --accent-soft-hover: color-mix(in oklab, var(--brand-500) 22%, transparent);
+    --accent-border:  color-mix(in oklab, var(--brand-500) 36%, transparent);
+
+    --status-new-bg:        color-mix(in oklab, #3b82f6 15%, transparent);
+    --status-new-fg:        #93c5fd;
+    --status-new-border:    color-mix(in oklab, #3b82f6 30%, transparent);
+
+    --status-progress-bg:   color-mix(in oklab, #eab308 14%, transparent);
+    --status-progress-fg:   #fde047;
+    --status-progress-border:color-mix(in oklab, #eab308 30%, transparent);
+
+    --status-waiting-bg:    color-mix(in oklab, #a855f7 14%, transparent);
+    --status-waiting-fg:    #d8b4fe;
+    --status-waiting-border:color-mix(in oklab, #a855f7 30%, transparent);
+
+    --status-resolved-bg:   color-mix(in oklab, #22c55e 14%, transparent);
+    --status-resolved-fg:   #86efac;
+    --status-resolved-border:color-mix(in oklab, #22c55e 30%, transparent);
+
+    --status-closed-bg:     #27272a;
+    --status-closed-fg:     #a1a1aa;
+    --status-closed-border: #3f3f46;
+
+    --priority-low:      #a1a1aa;
+    --priority-medium:   #60a5fa;
+    --priority-high:     #fbbf24;
+    --priority-critical: #f87171;
+
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.25);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.25);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+    --shadow-popover: 0 8px 28px -6px rgb(0 0 0 / 0.55), 0 2px 8px -2px rgb(0 0 0 / 0.35);
+
+    --backdrop: rgb(0 0 0 / 0.6);
+
+    color-scheme: dark;
+  }
+
+  /* Respect OS preference when no explicit theme set */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not([data-theme="dark"]) {
+      color-scheme: dark;
+    }
+  }
+}

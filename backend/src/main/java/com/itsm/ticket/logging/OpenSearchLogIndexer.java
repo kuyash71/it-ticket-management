@@ -8,12 +8,20 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 @Service
 public class OpenSearchLogIndexer {
 
     private static final Logger log = LoggerFactory.getLogger(OpenSearchLogIndexer.class);
+
+    // Dedicated pool so OpenSearch I/O never blocks request threads.
+    private static final Executor INDEXER_POOL = Executors.newFixedThreadPool(2,
+            r -> new Thread(r, "opensearch-indexer"));
 
     private final OpenSearchClient openSearchClient;
     private final String indexName;
@@ -24,18 +32,33 @@ public class OpenSearchLogIndexer {
         this.indexName = indexName;
     }
 
-    public void index(String eventType, Map<String, Object> payload) {
-        Map<String, Object> document = Map.of(
-                "eventType", eventType,
-                "timestamp", Instant.now().toString(),
-                "payload", payload
+    /**
+     * Non-blocking: schedules indexing on a dedicated thread pool.
+     * traceId is passed explicitly because MDC is thread-local and unavailable in the pool thread.
+     */
+    public void indexAsync(String eventType, String ticketId, String actor,
+                           String traceId, Map<String, String> payload) {
+        CompletableFuture.runAsync(
+                () -> doIndex(eventType, ticketId, actor, traceId, payload),
+                INDEXER_POOL
         );
+    }
+
+    private void doIndex(String eventType, String ticketId, String actor,
+                         String traceId, Map<String, String> payload) {
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("eventType", eventType);
+        document.put("timestamp", Instant.now().toString());
+        document.put("traceId", traceId != null ? traceId : "");
+        document.put("ticketId", ticketId != null ? ticketId : "");
+        document.put("actor", actor != null ? actor : "");
+        document.put("payload", payload);
 
         try {
             openSearchClient.index(i -> i.index(indexName).document(document));
-            log.debug("OpenSearch log indexed: {}", document);
+            log.debug("OpenSearch log indexed eventType={} ticketId={}", eventType, ticketId);
         } catch (IOException ex) {
-            log.warn("OpenSearch indexing failed for event={}", eventType, ex);
+            log.error("OpenSearch indexing failed eventType={} ticketId={}", eventType, ticketId, ex);
         }
     }
 }
