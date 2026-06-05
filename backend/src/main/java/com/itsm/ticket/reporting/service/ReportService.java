@@ -3,6 +3,7 @@ package com.itsm.ticket.reporting.service;
 import com.itsm.ticket.reporting.api.SummaryReport;
 import com.itsm.ticket.reporting.repository.ReportRepository;
 import com.itsm.ticket.ticket.domain.enums.SLAClockState;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ public class ReportService {
         this.reportRepository = reportRepository;
     }
 
+    @Cacheable("summary-report")
     @Transactional(readOnly = true)
     public SummaryReport summary() {
         Map<String, Long> byStatus = toMap(reportRepository.countByStatus());

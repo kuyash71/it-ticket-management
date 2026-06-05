@@ -28,7 +28,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/prometheus", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/tickets/*/worklogs").hasAnyRole("AGENT", "MANAGER")
                         .requestMatchers("/api/tickets/**").hasAnyRole("AGENT", "MANAGER", "CUSTOMER")
                         .requestMatchers("/api/users/**").hasAnyRole("AGENT", "MANAGER")

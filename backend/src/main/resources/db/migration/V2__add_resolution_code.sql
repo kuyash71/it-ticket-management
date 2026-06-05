@@ -1,0 +1,1 @@
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS resolution_code VARCHAR(30);

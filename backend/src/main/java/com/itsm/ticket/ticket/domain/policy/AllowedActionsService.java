@@ -64,7 +64,7 @@ public final class AllowedActionsService {
                 }
             }
             case IN_PROGRESS -> {
-                // REQUEST_INFO (WAITING_FOR_CUSTOMER geçişi) plain transitions aracılığıyla gösteriliyor.
+                actions.add(TicketAction.REQUEST_INFO);
                 if (ticket.isApproved()) {
                     actions.add(TicketAction.RESOLVE);
                 }
