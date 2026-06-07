@@ -13,7 +13,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "tickets")
 @Inheritance(strategy = InheritanceType.JOINED)
-@DiscriminatorColumn(name = "TicketType", discriminatorType = DiscriminatorType.STRING)
+@DiscriminatorColumn(name = "ticket_type", discriminatorType = DiscriminatorType.STRING)
 public class Ticket {
 
     @Id
@@ -85,13 +85,20 @@ public class Ticket {
 
     @Version
     @Column(nullable = false)
-    private Long version;
+    private Long version = 0L;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TicketType type;
 
     private String processInstanceId;
+
+    /**
+     * Doc §4.2 Abandoned-case bookkeeping — WAITING_FOR_CUSTOMER state'inden çıkıldığında
+     * her ikisi de null'lanır; scheduler aynı ticket'a iki kez reminder/flag göndermesin diye.
+     */
+    private Instant reminderSentAt;
+    private Instant abandonedFlaggedAt;
 
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TicketEvent> events = new ArrayList<>();
@@ -119,6 +126,9 @@ public class Ticket {
         applyPriority(new TicketPriorityTransition());
         this.slaClock = new SLAClock();
         this.slaClock.setDeadline(new SLADeadlineService().calculate(this.type, this.priority));
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
     }
 
     @PrePersist
@@ -151,8 +161,19 @@ public class Ticket {
             case IN_PROGRESS -> this.slaClock.resume();
             case WAITING_FOR_CUSTOMER -> this.slaClock.pause();
         }
+        // WAITING_FOR_CUSTOMER'dan çıkış: scheduler tarafından konan abandoned bayraklarını temizle.
+        if (this.status == TicketStatus.WAITING_FOR_CUSTOMER && target != TicketStatus.WAITING_FOR_CUSTOMER) {
+            this.reminderSentAt = null;
+            this.abandonedFlaggedAt = null;
+        }
         this.status = target;
     }
+
+    /** Doc §4.2 — scheduler reminder/flagged timestamp'ı set eder. */
+    public void markReminderSent() { this.reminderSentAt = Instant.now(); }
+    public void markAbandonedFlagged() { this.abandonedFlaggedAt = Instant.now(); }
+    public Instant getReminderSentAt() { return reminderSentAt; }
+    public Instant getAbandonedFlaggedAt() { return abandonedFlaggedAt; }
 
     /**
      * RESOLVED transition with mandatory resolution note (Doc §4.1).
@@ -336,6 +357,19 @@ public class Ticket {
 
     public TicketEvent addWorklog(String actorId, String body, TicketEventVisibility visibility) {
         TicketEvent event = TicketEvent.worklog(this, actorId, body, visibility);
+        events.add(event);
+        return event;
+    }
+
+    /**
+     * Doc §7.8 — Customer files a service-quality complaint. Stored as INTERNAL so it surfaces
+     * on agent/manager timelines but isn't echoed back to the customer view. Body is mandatory.
+     */
+    public TicketEvent addComplaint(String actorId, String body) {
+        if (body == null || body.isBlank()) {
+            throw new IllegalArgumentException("Complaint body is required");
+        }
+        TicketEvent event = TicketEvent.complaint(this, actorId, body.trim());
         events.add(event);
         return event;
     }

@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -47,11 +49,21 @@ public class GlobalExceptionHandler {
         return new ErrorResponse("ATTACHMENT_POLICY_VIOLATION", msg("error.attachment.policy_violation", ex.getMessage()));
     }
 
+    /**
+     * Domain-level invalid input. Mesajı doğrudan döndürürüz çünkü domain'in attığı IAE
+     * tipik olarak "Resolution note is required" gibi user-actionable bir text içerir.
+     * Eğer ileride generic IAE'ler güvenlik kaygısı yaratırsa, custom domain exception sınıfları
+     * ile değiştirilmelidir.
+     */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
         log.debug("Bad request: {}", ex.getMessage());
-        return new ErrorResponse("BAD_REQUEST", msg("error.bad_request", "Invalid request"));
+        String msg = ex.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = msg("error.bad_request", "Invalid request");
+        }
+        return new ErrorResponse("BAD_REQUEST", msg);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -61,6 +73,44 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return new ErrorResponse("VALIDATION_ERROR", msg("error.validation", "Validation failed") + " (" + detail + ")");
+    }
+
+    /**
+     * Spring Security'nin attığı AccessDeniedException → 403. Aksi takdirde catch-all 500'e
+     * düşerdi; user yetki ihlali yerine "internal error" görürdü.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ErrorResponse handleAccessDenied(AccessDeniedException ex) {
+        return new ErrorResponse("FORBIDDEN", msg("auth.forbidden", "Access denied"));
+    }
+
+    /**
+     * JWT geçersiz/expired/missing → 401.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleAuthentication(AuthenticationException ex) {
+        return new ErrorResponse("UNAUTHENTICATED", msg("auth.unauthenticated", "Authentication required"));
+    }
+
+    /**
+     * Doc §11 Concurrency & Tutarlılık — version uyuşmazlığı 409 Conflict döner.
+     */
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ErrorResponse handleOptimisticLock(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        log.warn("Concurrency conflict: {}", ex.getMessage());
+        return new ErrorResponse("VERSION_CONFLICT",
+                msg("error.version_conflict",
+                        "Ticket was modified concurrently — please reload and retry"));
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorResponse handleGeneral(Exception ex) {
+        log.error("Unexpected error: {}", ex.getMessage(), ex);
+        return new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred");
     }
 
     private String msg(String code, String fallback) {

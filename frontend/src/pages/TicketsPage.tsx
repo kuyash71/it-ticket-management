@@ -1,50 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useTranslation } from "react-i18next";
 
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthProvider";
 import { useRole } from "../auth/useRole";
-import { Button } from "../components/ui/Button";
+import { Card, EmptyState, ErrorBanner, SkRows } from "../components/itsm/Common";
+import { Icon } from "../components/itsm/Icon";
+import { Assignee, PriorityPill, SLABar, StatusBadge, TypeBadge } from "../components/itsm/Primitives";
+import { STATUS_META, TYPE_META, PRIORITY_META } from "../components/itsm/meta";
 import { Dialog } from "../components/ui/Dialog";
-import { EmptyState } from "../components/ui/EmptyState";
-import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { Button } from "../components/ui/Button";
 import { Field } from "../components/ui/Field";
 import { Input, Select, Textarea } from "../components/ui/Input";
-import {
-  IconClose,
-  IconInbox,
-  IconPaperclip,
-  IconPlus,
-  IconRefresh,
-  IconSearch
-} from "../components/ui/Icon";
-import { PriorityBadge, StatusBadge, TypeBadge } from "../components/ui/Badge";
-import { LoadingState } from "../components/ui/Spinner";
+import { ErrorBanner as ErrorBannerLegacy } from "../components/ui/ErrorBanner";
 import { useToast } from "../components/ui/Toast";
-import type { AttachmentInput, CreateTicketPayload, Ticket, TicketStatus, TicketType, TicketUrgency } from "../types/api";
-import { formatRelative } from "../lib/format";
-
-const TITLE_MAX = 255;
-const DESC_MAX = 5000;
+import { formatActor, formatRelative } from "../lib/format";
+import type {
+  AttachmentInput,
+  CreateTicketPayload,
+  Ticket,
+  TicketStatus,
+  TicketType,
+  TicketUrgency
+} from "../types/api";
 
 type Props = {
   onViewDetail: (id: string) => void;
   externalCreateOpen: boolean;
   onCreateOpenChange: (open: boolean) => void;
+  initialOvertime?: boolean;
 };
 
-const STATUS_FILTERS: { value: TicketStatus | "ALL"; tKey: string }[] = [
-  { value: "ALL", tKey: "ticket.filter.all" },
-  { value: "NEW", tKey: "status.new" },
-  { value: "IN_PROGRESS", tKey: "status.in_progress" },
-  { value: "WAITING_FOR_CUSTOMER", tKey: "status.waiting" },
-  { value: "RESOLVED", tKey: "status.resolved" },
-  { value: "CLOSED", tKey: "status.closed" }
-];
-
-export const TicketsPage = ({ onViewDetail, externalCreateOpen, onCreateOpenChange }: Props) => {
-  const { t } = useTranslation();
+export const TicketsPage = ({ onViewDetail, externalCreateOpen, onCreateOpenChange, initialOvertime }: Props) => {
   const { token } = useAuth();
   const { isCustomer, isManager } = useRole();
   const toast = useToast();
@@ -53,18 +40,21 @@ export const TicketsPage = ({ onViewDetail, externalCreateOpen, onCreateOpenChan
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "ALL">("ALL");
   const [typeFilter, setTypeFilter] = useState<TicketType | "ALL">("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<keyof typeof PRIORITY_META | "ALL">("ALL");
   const [search, setSearch] = useState("");
+  const [overtimeOnly, setOvertimeOnly] = useState(!!initialOvertime);
 
   const fetchTickets = useCallback(async () => {
     setError(null);
     try {
-      const res = await http.get<Ticket[]>("/api/tickets");
+      const url = overtimeOnly && isManager() ? "/api/v1/tickets/overtime" : "/api/v1/tickets";
+      const res = await http.get<Ticket[]>(url);
       setTickets(res.data);
     } catch {
-      setError(t("error.fetch_failed"));
+      setError("Veriler yüklenemedi.");
       setTickets([]);
     }
-  }, [t]);
+  }, [overtimeOnly, isManager]);
 
   useEffect(() => {
     if (!token) return;
@@ -74,165 +64,215 @@ export const TicketsPage = ({ onViewDetail, externalCreateOpen, onCreateOpenChan
   const filtered = useMemo(() => {
     if (!tickets) return [];
     const q = search.trim().toLowerCase();
-    return tickets.filter((tk) => {
-      if (statusFilter !== "ALL" && tk.status !== statusFilter) return false;
-      if (typeFilter !== "ALL" && tk.type !== typeFilter) return false;
-      if (q && !tk.title.toLowerCase().includes(q) && !tk.id.toLowerCase().includes(q)) return false;
+    return tickets.filter((t) => {
+      if (statusFilter !== "ALL" && t.status !== statusFilter) return false;
+      if (typeFilter !== "ALL" && t.type !== typeFilter) return false;
+      if (priorityFilter !== "ALL" && t.priority !== priorityFilter) return false;
+      if (q && !t.title.toLowerCase().includes(q) && !t.id.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [tickets, statusFilter, typeFilter, search]);
+  }, [tickets, statusFilter, typeFilter, priorityFilter, search]);
 
-  const canCreate = !isManager();
-  const filtersActive = statusFilter !== "ALL" || typeFilter !== "ALL" || search.length > 0;
+  // Her rol kendi adına ticket açabilir — backend reporter olarak actor'u kaydeder.
+  const canCreate = true;
+  const filtersActive = statusFilter !== "ALL" || typeFilter !== "ALL" || priorityFilter !== "ALL" || search.length > 0 || overtimeOnly;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{t("ticket.list")}</h1>
-          <p className="page-subtitle">
-            {tickets === null
-              ? t("app.loading")
-              : t("ticket.list.subtitle", { count: filtered.length })}
-          </p>
-        </div>
-        <div className="page-actions">
-          <Button variant="ghost" size="sm" leadingIcon={<IconRefresh />} onClick={() => void fetchTickets()}>
-            {t("action.refresh")}
-          </Button>
-          {canCreate && (
-            <Button variant="primary" leadingIcon={<IconPlus />} onClick={() => onCreateOpenChange(true)}>
-              {t("ticket.create")}
-            </Button>
-          )}
-        </div>
-      </div>
+    <div className="col gap-4">
+      {error && <ErrorBanner msg={error} onRetry={() => void fetchTickets()} />}
 
-      {error && <div style={{ marginBottom: "var(--space-4)" }}><ErrorBanner>{error}</ErrorBanner></div>}
-
-      <div className="list-toolbar">
-        <Input
-          type="search"
-          placeholder={t("ticket.search")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          leadingIcon={<IconSearch />}
-          aria-label={t("ticket.search")}
-        />
-        <div className="filter-chips" role="tablist" aria-label={t("ticket.filter.status")}>
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              role="tab"
-              className="filter-chip"
-              aria-pressed={statusFilter === f.value}
-              onClick={() => setStatusFilter(f.value)}
-            >
-              {t(f.tKey)}
-            </button>
-          ))}
-        </div>
-        <Select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as TicketType | "ALL")}
-          aria-label={t("ticket.filter.type")}
-          style={{ width: 160 }}
-        >
-          <option value="ALL">{t("ticket.filter.all_types")}</option>
-          <option value="INCIDENT">{t("ticket.type.incident")}</option>
-          <option value="SERVICE_REQUEST">{t("ticket.type.service_request")}</option>
-        </Select>
-      </div>
-
-      {tickets === null ? (
-        <div className="card"><LoadingState text={t("app.loading")} /></div>
-      ) : filtered.length === 0 ? (
-        <div className="card">
-          <EmptyState
-            icon={<IconInbox size={20} />}
-            title={t("ticket.empty")}
-            description={filtersActive ? t("ticket.empty.filtered") : t("ticket.empty.desc")}
-            action={
-              filtersActive ? (
-                <Button variant="ghost" onClick={() => { setStatusFilter("ALL"); setTypeFilter("ALL"); setSearch(""); }}>
-                  {t("ticket.filter.clear")}
-                </Button>
-              ) : canCreate ? (
-                <Button variant="primary" leadingIcon={<IconPlus />} onClick={() => onCreateOpenChange(true)}>
-                  {t("ticket.create")}
-                </Button>
-              ) : null
-            }
+      <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+        <div className="search" style={{ width: 280 }}>
+          <Icon name="search" size={14} />
+          <input
+            type="search"
+            placeholder="Talep ara (başlık, ID)..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ border: "none", outline: "none", background: "transparent", flex: 1, font: "inherit", color: "var(--text-primary)" }}
           />
         </div>
-      ) : (
-        <div className="data-table-wrapper">
-          <table className="data-table" aria-label={t("ticket.list")}>
+
+        <FilterDropdown
+          icon="filter"
+          label="Durum"
+          value={statusFilter}
+          options={[
+            { v: "ALL", l: "Tümü" },
+            ...(Object.keys(STATUS_META) as TicketStatus[]).map((k) => ({ v: k, l: STATUS_META[k].label }))
+          ]}
+          onChange={(v) => setStatusFilter(v as TicketStatus | "ALL")}
+        />
+
+        <FilterDropdown
+          icon="filter"
+          label="Tür"
+          value={typeFilter}
+          options={[
+            { v: "ALL", l: "Tümü" },
+            ...(Object.keys(TYPE_META) as TicketType[]).map((k) => ({ v: k, l: TYPE_META[k].label }))
+          ]}
+          onChange={(v) => setTypeFilter(v as TicketType | "ALL")}
+        />
+
+        {!isCustomer() && (
+          <FilterDropdown
+            icon="filter"
+            label="Öncelik"
+            value={priorityFilter}
+            options={[
+              { v: "ALL", l: "Tümü" },
+              ...(Object.keys(PRIORITY_META) as (keyof typeof PRIORITY_META)[]).map((k) => ({ v: k, l: PRIORITY_META[k].label }))
+            ]}
+            onChange={(v) => setPriorityFilter(v as keyof typeof PRIORITY_META | "ALL")}
+          />
+        )}
+
+        {isManager() && (
+          <span
+            className={"chip" + (overtimeOnly ? " on" : "")}
+            onClick={() => setOvertimeOnly((v) => !v)}
+            role="button"
+            tabIndex={0}
+            style={overtimeOnly ? { borderColor: "color-mix(in srgb, var(--red) 40%, var(--border))", color: "var(--red)" } : undefined}
+          >
+            <Icon name="clock" size={12} />Süre Aşımı
+          </span>
+        )}
+
+        <span style={{ flex: 1 }} />
+
+        <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>
+          {tickets === null ? "Yükleniyor…" : `${filtered.length} / ${tickets.length}`}
+        </span>
+
+        {canCreate && (
+          <button className="btn btn-primary" onClick={() => onCreateOpenChange(true)}>
+            <Icon name="plus" size={13} />Yeni Talep
+          </button>
+        )}
+      </div>
+
+      <Card pad={false} style={{ overflow: "hidden" }}>
+        {tickets === null ? <SkRows n={8} /> : filtered.length === 0 ? (
+          <EmptyState
+            icon="ticket"
+            title="Eşleşen talep bulunamadı"
+            body={filtersActive ? "Filtreleri temizleyin veya farklı bir arama deneyin." : "Henüz talep yok."}
+            action={filtersActive ? (
+              <button className="btn btn-sm" onClick={() => { setStatusFilter("ALL"); setTypeFilter("ALL"); setPriorityFilter("ALL"); setSearch(""); setOvertimeOnly(false); }}>
+                Filtreleri sıfırla
+              </button>
+            ) : canCreate ? (
+              <button className="btn btn-primary btn-sm" onClick={() => onCreateOpenChange(true)}><Icon name="plus" size={13} />Yeni Talep</button>
+            ) : undefined}
+          />
+        ) : (
+          <table className="tbl">
             <thead>
               <tr>
-                <th style={{ width: "100px" }}>{t("ticket.col.id")}</th>
-                <th>{t("ticket.col.title")}</th>
-                <th>{t("ticket.col.type")}</th>
-                <th>{t("ticket.col.status")}</th>
-                {!isCustomer() && <th>{t("ticket.col.priority")}</th>}
-                <th>{t("ticket.col.updated")}</th>
+                <th>ID</th>
+                <th>Başlık</th>
+                <th>Tür</th>
+                <th>Durum</th>
+                {!isCustomer() && <th>Öncelik</th>}
+                {!isCustomer() && <th>Atanan</th>}
+                <th style={{ width: 170 }}>SLA</th>
+                <th className="right">Güncellendi</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((tk) => (
-                <tr
-                  key={tk.id}
-                  tabIndex={0}
-                  onClick={() => onViewDetail(tk.id)}
-                  onKeyDown={(e) => { if (e.key === "Enter") onViewDetail(tk.id); }}
-                  aria-label={`${t("ticket.open")}: ${tk.title}`}
-                >
-                  <td className="col-id">#{tk.id.slice(0, 8)}</td>
-                  <td className="col-title">{tk.title}</td>
-                  <td><TypeBadge type={tk.type} /></td>
-                  <td><StatusBadge status={tk.status} /></td>
-                  {!isCustomer() && <td><PriorityBadge priority={tk.priority} /></td>}
-                  <td className="text-muted text-xs">{formatRelative(tk.updatedAt)}</td>
+              {filtered.map((t) => (
+                <tr key={t.id} onClick={() => onViewDetail(t.id)} tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter") onViewDetail(t.id); }}>
+                  <td className="col-id">#{t.id.slice(0, 8)}</td>
+                  <td className="ttl" style={{ maxWidth: 380 }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  </td>
+                  <td><TypeBadge type={t.type} /></td>
+                  <td><StatusBadge status={t.status} /></td>
+                  {!isCustomer() && <td><PriorityPill priority={t.priority} /></td>}
+                  {!isCustomer() && (
+                    <td>
+                      {t.assigneeId
+                        ? <Assignee id={t.assigneeId} name={formatActor(t.assigneeId)} />
+                        : <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>—</span>}
+                    </td>
+                  )}
+                  <td>{t.sla ? <SLABar sla={t.sla} /> : <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>—</span>}</td>
+                  <td className="faint nowrap right">{formatRelative(t.updatedAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </Card>
 
       <CreateTicketDialog
         open={externalCreateOpen}
         onClose={() => onCreateOpenChange(false)}
-        onCreated={(tk) => {
-          setTickets((prev) => prev ? [tk, ...prev] : [tk]);
+        onCreated={(t) => {
+          setTickets((prev) => prev ? [t, ...prev] : [t]);
           onCreateOpenChange(false);
-          toast.success(t("ticket.create"), `#${tk.id.slice(0, 8)} — ${tk.title}`);
-          onViewDetail(tk.id);
+          toast.success("Talep oluşturuldu", `#${t.id.slice(0, 8)} — ${t.title}`);
+          onViewDetail(t.id);
         }}
       />
     </div>
   );
 };
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // Doc §7: 10 MB
+function FilterDropdown({ icon, label, value, options, onChange }: {
+  icon: string;
+  label: string;
+  value: string;
+  options: { v: string; l: string }[];
+  onChange: (v: string) => void;
+}) {
+  const current = options.find((o) => o.v === value)?.l ?? label;
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: "relative" }}>
+      <span className={"chip" + (value !== "ALL" ? " on" : "")} onClick={() => setOpen((o) => !o)} role="button" tabIndex={0}>
+        <Icon name={icon as any} size={12} />{label}: <b style={{ marginLeft: 4 }}>{current}</b>
+        <Icon name="chevdown" size={11} />
+      </span>
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 50 }} onClick={() => setOpen(false)} />
+          <div className="card" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, minWidth: 180, padding: 4, zIndex: 51, boxShadow: "var(--shadow-pop)" }}>
+            {options.map((o) => (
+              <div
+                key={o.v}
+                onClick={() => { onChange(o.v); setOpen(false); }}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: "var(--fs-sm)",
+                  background: value === o.v ? "var(--accent-soft)" : "transparent",
+                  color: value === o.v ? "var(--accent-text)" : "var(--text-primary)"
+                }}
+              >
+                {o.l}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
-type StagedFile = {
-  id: string;
-  file: File;
-  visibility: "EXTERNAL" | "INTERNAL";
-};
+const TITLE_MAX = 255;
+const DESC_MAX = 5000;
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
-const CreateTicketDialog = ({
-  open,
-  onClose,
-  onCreated
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: (tk: Ticket) => void;
-}) => {
-  const { t } = useTranslation();
+type StagedFile = { id: string; file: File; visibility: "EXTERNAL" | "INTERNAL" };
+
+function CreateTicketDialog({
+  open, onClose, onCreated
+}: { open: boolean; onClose: () => void; onCreated: (t: Ticket) => void }) {
   const toast = useToast();
   const [type, setType] = useState<TicketType>("INCIDENT");
   const [title, setTitle] = useState("");
@@ -243,36 +283,19 @@ const CreateTicketDialog = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setType("INCIDENT");
-      setTitle("");
-      setDescription("");
-      setUrgency("LOW");
-      setFiles([]);
-      setError(null);
-    }
+    if (open) { setType("INCIDENT"); setTitle(""); setDescription(""); setUrgency("LOW"); setFiles([]); setError(null); }
   }, [open]);
 
   const onFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
     const accepted: StagedFile[] = [];
     for (const f of picked) {
-      if (f.size > MAX_FILE_BYTES) {
-        toast.error(t("attachment.error.too_large", { name: f.name }));
-        continue;
-      }
-      accepted.push({
-        id: crypto.randomUUID(),
-        file: f,
-        visibility: "EXTERNAL",
-      });
+      if (f.size > MAX_FILE_BYTES) { toast.error(`${f.name}: dosya çok büyük (max 10 MB)`); continue; }
+      accepted.push({ id: crypto.randomUUID(), file: f, visibility: "EXTERNAL" });
     }
     setFiles((prev) => [...prev, ...accepted]);
-    e.target.value = ""; // allow re-selecting same file
+    e.target.value = "";
   };
-
-  const removeFile = (id: string) =>
-    setFiles((prev) => prev.filter((s) => s.id !== id));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -284,171 +307,79 @@ const CreateTicketDialog = ({
         fileName: s.file.name,
         mimeType: s.file.type || "application/octet-stream",
         sizeBytes: s.file.size,
-        // No real object store is wired yet; we generate a stable key so the
-        // metadata is preserved and a later upload service can map it.
         storageKey: `stage/${s.id}/${s.file.name}`,
-        visibility: s.visibility,
+        visibility: s.visibility
       }));
       const payload: CreateTicketPayload = {
         type,
         title: title.trim(),
         description: description.trim(),
         urgency,
-        attachments: attachments.length > 0 ? attachments : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined
       };
-      const res = await http.post<Ticket>("/api/tickets", payload);
+      const res = await http.post<Ticket>("/api/v1/tickets", payload);
       onCreated(res.data);
     } catch {
-      setError(t("error.create_failed"));
-      toast.error(t("error.create_failed"));
-    } finally {
-      setSubmitting(false);
-    }
+      setError("Talep oluşturulamadı.");
+      toast.error("Talep oluşturulamadı");
+    } finally { setSubmitting(false); }
   };
 
   return (
     <Dialog
       open={open}
       onClose={() => { if (!submitting) onClose(); }}
-      title={t("ticket.create")}
-      description={t("ticket.create.subtitle")}
+      title="Yeni Talep Oluştur"
+      description="Sorununuzu detaylı bir şekilde anlatın, ekibimiz size hızlıca dönüş yapacak."
       size="md"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={submitting}>{t("action.cancel")}</Button>
-          <Button
-            variant="primary"
-            onClick={(e) => void submit(e as unknown as FormEvent)}
-            disabled={submitting || !title.trim() || !description.trim()}
-            loading={submitting}
-          >
-            {t("ticket.create")}
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>İptal</Button>
+          <Button variant="primary" onClick={(e) => void submit(e as unknown as FormEvent)} disabled={submitting || !title.trim() || !description.trim()} loading={submitting}>
+            Talep Oluştur
           </Button>
         </>
       }
     >
-      <form onSubmit={(e) => void submit(e)} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-        {error && <ErrorBanner>{error}</ErrorBanner>}
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-          <Field label={t("ticket.type")} htmlFor="t-type" required>
+      <form onSubmit={(e) => void submit(e)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {error && <ErrorBannerLegacy>{error}</ErrorBannerLegacy>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Field label="Tür" htmlFor="t-type" required>
             <Select id="t-type" value={type} onChange={(e) => setType(e.target.value as TicketType)}>
-              <option value="INCIDENT">{t("ticket.type.incident")}</option>
-              <option value="SERVICE_REQUEST">{t("ticket.type.service_request")}</option>
+              <option value="INCIDENT">Olay</option>
+              <option value="SERVICE_REQUEST">Hizmet Talebi</option>
             </Select>
           </Field>
-          <Field label={t("ticket.col.urgency")} htmlFor="t-urgency" hint={t("ticket.urgency.hint")}>
+          <Field label="Aciliyet" htmlFor="t-urgency" hint="Düşük/Orta/Yüksek">
             <Select id="t-urgency" value={urgency} onChange={(e) => setUrgency(e.target.value as TicketUrgency)}>
-              <option value="LOW">{t("urgency.low")}</option>
-              <option value="MEDIUM">{t("urgency.medium")}</option>
-              <option value="HIGH">{t("urgency.high")}</option>
+              <option value="LOW">Düşük</option>
+              <option value="MEDIUM">Orta</option>
+              <option value="HIGH">Yüksek</option>
             </Select>
           </Field>
         </div>
-
-        <Field
-          label={t("ticket.title")}
-          htmlFor="t-title"
-          required
-          hint={`${title.length} / ${TITLE_MAX}`}
-        >
-          <Input
-            id="t-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={TITLE_MAX}
-            placeholder={t("ticket.title.placeholder")}
-            required
-          />
+        <Field label="Başlık" htmlFor="t-title" required hint={`${title.length} / ${TITLE_MAX}`}>
+          <Input id="t-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={TITLE_MAX} placeholder="Kısa ve açıklayıcı bir başlık" required />
         </Field>
-
-        <Field
-          label={t("ticket.description")}
-          htmlFor="t-desc"
-          required
-          hint={`${description.length} / ${DESC_MAX}`}
-        >
-          <Textarea
-            id="t-desc"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={DESC_MAX}
-            rows={6}
-            placeholder={t("ticket.description.placeholder")}
-            required
-          />
+        <Field label="Açıklama" htmlFor="t-desc" required hint={`${description.length} / ${DESC_MAX}`}>
+          <Textarea id="t-desc" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={DESC_MAX} rows={6} placeholder="Sorunu adım adım anlatın" required />
         </Field>
-
-        <Field
-          label={t("attachment.add")}
-          htmlFor="t-attachments"
-          hint={t("attachment.hint")}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-            <label
-              htmlFor="t-attachments"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "var(--space-2)",
-                padding: "var(--space-2) var(--space-3)",
-                border: "1px dashed var(--border)",
-                borderRadius: "var(--radius-md)",
-                cursor: "pointer",
-                color: "var(--text-secondary)",
-                fontSize: "var(--text-sm)",
-                width: "fit-content",
-              }}
-            >
-              <IconPaperclip size={14} />
-              {t("attachment.choose")}
+        <Field label="Ekler" htmlFor="t-attachments" hint="Max 10 MB / dosya">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label htmlFor="t-attachments" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px dashed var(--border)", borderRadius: 6, cursor: "pointer", color: "var(--text-secondary)", fontSize: 13, width: "fit-content" }}>
+              <Icon name="paperclip" size={14} />Dosya seç
             </label>
-            <input
-              id="t-attachments"
-              type="file"
-              multiple
-              onChange={onFilesPicked}
-              style={{ display: "none" }}
-            />
+            <input id="t-attachments" type="file" multiple onChange={onFilesPicked} style={{ display: "none" }} />
             {files.length > 0 && (
-              <ul
-                style={{
-                  listStyle: "none",
-                  padding: 0,
-                  margin: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-1)",
-                }}
-              >
+              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 4 }}>
                 {files.map((s) => (
-                  <li
-                    key={s.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "var(--space-2)",
-                      padding: "var(--space-2) var(--space-3)",
-                      background: "var(--bg-subtle)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-md)",
-                      fontSize: "var(--text-sm)",
-                    }}
-                  >
-                    <IconPaperclip size={14} aria-hidden />
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {s.file.name}
-                    </span>
-                    <span className="text-muted text-xs">{formatBytes(s.file.size)}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      iconOnly
-                      leadingIcon={<IconClose size={14} />}
-                      onClick={() => removeFile(s.id)}
-                      aria-label={t("attachment.remove")}
-                    />
+                  <li key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--bg-subtle)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 13 }}>
+                    <Icon name="paperclip" size={14} />
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.file.name}</span>
+                    <span className="faint" style={{ fontSize: 11 }}>{formatBytes(s.file.size)}</span>
+                    <button type="button" className="iconbtn" onClick={() => setFiles((p) => p.filter((x) => x.id !== s.id))}>
+                      <Icon name="x" size={12} />
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -458,7 +389,7 @@ const CreateTicketDialog = ({
       </form>
     </Dialog>
   );
-};
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

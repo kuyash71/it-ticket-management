@@ -13,63 +13,83 @@ import com.itsm.ticket.ticket.notification.NotificationService;
 import com.itsm.ticket.ticket.repository.TicketRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Periodically checks every open ticket and emits SLABreachRisk / SLABreached events
  * the first time each threshold (Doc §6.7) is crossed.
  * Levels: NORMAL (<70%) → WARNING (≥70%) → RISK (≥85%) → BREACH (≥100%)
+ *
+ * <p>Per-ticket transaction template is used so a single ticket exception/lock contention
+ * does not roll back the whole scan, and tx scope stays short — DB locks don't stretch.
  */
 @Component
 public class SLAEscalationScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(SLAEscalationScheduler.class);
     private static final SLAEscalationService POLICY = new SLAEscalationService();
+    /** Batch size — limits memory + transaction span per pass. */
+    private static final int BATCH = 200;
 
     private final TicketRepository ticketRepository;
     private final NotificationService notificationService;
     private final KafkaLogProducer kafkaLogProducer;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate txTemplate;
 
     public SLAEscalationScheduler(TicketRepository ticketRepository,
                                   NotificationService notificationService,
                                   KafkaLogProducer kafkaLogProducer,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  PlatformTransactionManager txManager) {
         this.ticketRepository = ticketRepository;
         this.notificationService = notificationService;
         this.kafkaLogProducer = kafkaLogProducer;
         this.objectMapper = objectMapper;
+        this.txTemplate = new TransactionTemplate(txManager);
     }
 
     /** Runs every minute (fixedDelay so it never overlaps itself). */
     @Scheduled(fixedDelayString = "${itsm.sla.check-interval-ms:60000}",
                initialDelayString = "${itsm.sla.initial-delay-ms:30000}")
-    @Transactional
     public void evaluate() {
-        List<Ticket> active = ticketRepository.findByStatusNotIn(
-                List.of(TicketStatus.RESOLVED, TicketStatus.CLOSED));
-        for (Ticket ticket : active) {
-            try {
-                evaluateTicket(ticket);
-            } catch (Exception e) {
-                log.warn("SLA evaluation failed for ticket {}: {}", ticket.getId(), e.getMessage());
+        int page = 0;
+        while (true) {
+            // Each page read in its own short tx; ids extracted, then per-ticket processing follows.
+            Page<Ticket> chunk = ticketRepository.findByStatusNotIn(
+                    List.of(TicketStatus.RESOLVED, TicketStatus.CLOSED),
+                    PageRequest.of(page, BATCH));
+            if (chunk.isEmpty()) break;
+            List<UUID> ids = chunk.getContent().stream().map(Ticket::getId).toList();
+            for (UUID id : ids) {
+                try {
+                    txTemplate.executeWithoutResult(status -> evaluateOne(id));
+                } catch (Exception e) {
+                    log.warn("SLA evaluation failed for ticket {}: {}", id, e.getMessage());
+                }
             }
+            if (!chunk.hasNext()) break;
+            page++;
         }
     }
 
-    private void evaluateTicket(Ticket ticket) {
-        if (ticket.getSlaClock() == null || ticket.getSlaClock().getDeadline() <= 0) return;
+    private void evaluateOne(UUID ticketId) {
+        Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
+        if (ticket == null || ticket.getSlaClock() == null || ticket.getSlaClock().getDeadline() <= 0) return;
 
         long elapsed = ticket.currentElapsedSeconds();
         SLAEscalationLevel current = POLICY.evaluate(elapsed, ticket.getSlaClock().getDeadline());
         SLAEscalationLevel previous = ticket.getSlaLevel() != null ? ticket.getSlaLevel() : SLAEscalationLevel.NORMAL;
-
-        if (current.ordinal() <= previous.ordinal()) return; // no upgrade — nothing to do
+        if (current.ordinal() <= previous.ordinal()) return;
 
         ticket.setSlaLevel(current);
 
@@ -90,6 +110,7 @@ public class SLAEscalationScheduler {
         ticket.audit("system", eventType, "SLA escalation auto-detected", payload);
         ticketRepository.save(ticket);
 
+        // Kafka publish + notification — afterCommit ile commit sonrasına alınır (producer içinde).
         kafkaLogProducer.publish(LogEvent.of(eventType.name(), ticket.getId().toString(), "system",
                 Map.of("level", current.name(),
                         "elapsedSeconds", String.valueOf(elapsed),

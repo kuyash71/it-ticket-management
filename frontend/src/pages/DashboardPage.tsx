@@ -1,56 +1,70 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { http } from "../api/http";
 import { useAuth } from "../auth/AuthProvider";
-import { parseJwtPayload } from "../lib/jwt";
 import { useRole } from "../auth/useRole";
-import { Button } from "../components/ui/Button";
-import { EmptyState } from "../components/ui/EmptyState";
-import { ErrorBanner } from "../components/ui/ErrorBanner";
-import {
-  IconAlertTriangle,
-  IconArrowRight,
-  IconBarChart,
-  IconCheckCircle,
-  IconClock,
-  IconInbox,
-  IconPlus
-} from "../components/ui/Icon";
-import { PriorityBadge, StatusBadge, TypeBadge } from "../components/ui/Badge";
-import { Skeleton } from "../components/ui/Skeleton";
-import type { SummaryReport, Ticket } from "../types/api";
+import { parseJwtPayload } from "../lib/jwt";
+import { formatActor, formatRelative } from "../lib/format";
+import { Card, EmptyState, ErrorBanner, SkChart, SkKPI, SkRows, WarnBanner } from "../components/itsm/Common";
+import { Icon } from "../components/itsm/Icon";
+import { Assignee, KPI, PriorityPill, SLABar, StatusBadge, Stars, TypeBadge } from "../components/itsm/Primitives";
+import { Donut, LineChart } from "../components/itsm/Charts";
+import { STATUS_HEX, STATUS_META } from "../components/itsm/meta";
 import type { AppView } from "../App";
-import { formatRelative } from "../lib/format";
+import type { SummaryReport, Ticket, TicketStatus } from "../types/api";
 
-type DashboardPageProps = {
+type Props = {
   onOpenTicket: (id: string) => void;
   onNavigate: (view: AppView) => void;
   onCreateTicket: () => void;
 };
 
-export const DashboardPage = ({ onOpenTicket, onNavigate, onCreateTicket }: DashboardPageProps) => {
-  const { t } = useTranslation();
+type FeedbackReport = {
+  totalFeedback: number;
+  averageRating: number;
+  ratingDistribution: Record<string, number>;
+  perAgent: { agentId: string; count: number; averageRating: number }[];
+};
+
+const OPEN_STATUSES: TicketStatus[] = ["NEW", "IN_PROGRESS", "WAITING_FOR_CUSTOMER"];
+
+export const DashboardPage = ({ onOpenTicket, onNavigate, onCreateTicket }: Props) => {
   const { token } = useAuth();
-  const { isCustomer } = useRole();
+  const { isCustomer, isAgent, isManager } = useRole();
 
   const [tickets, setTickets] = useState<Ticket[] | null>(null);
   const [summary, setSummary] = useState<SummaryReport | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackReport | null>(null);
+  const [overtime, setOvertime] = useState<Ticket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const role: "MANAGER" | "AGENT" | "CUSTOMER" = isManager() ? "MANAGER" : isAgent() ? "AGENT" : "CUSTOMER";
 
   const fetchAll = useCallback(async () => {
     setError(null);
     try {
-      const [tx, sm] = await Promise.all([
-        http.get<Ticket[]>("/api/tickets"),
-        isCustomer() ? Promise.resolve(null) : http.get<SummaryReport>("/api/reports/summary").then((r) => r.data)
-      ]);
+      const tx = await http.get<Ticket[]>("/api/v1/tickets");
       setTickets(tx.data);
-      setSummary(sm);
+      if (role !== "CUSTOMER") {
+        const sm = await http.get<SummaryReport>("/api/v1/reports/summary");
+        setSummary(sm.data);
+      }
+      if (role === "MANAGER") {
+        try {
+          const [fb, ot] = await Promise.all([
+            http.get<FeedbackReport>("/api/v1/reports/feedback"),
+            http.get<Ticket[]>("/api/v1/tickets/overtime")
+          ]);
+          setFeedback(fb.data);
+          setOvertime(ot.data);
+        } catch {
+          /* optional */
+        }
+      }
     } catch {
-      setError(t("error.fetch_failed"));
+      setError("Veriler yüklenemedi.");
     }
-  }, [t, isCustomer]);
+  }, [role]);
 
   useEffect(() => {
     if (!token) return;
@@ -64,228 +78,336 @@ export const DashboardPage = ({ onOpenTicket, onNavigate, onCreateTicket }: Dash
       .slice(0, 6);
   }, [tickets]);
 
-  const openCount = useMemo(() => {
-    if (summary) return summary.openTickets;
-    if (!tickets) return null;
-    return tickets.filter((t) => t.status !== "CLOSED" && t.status !== "RESOLVED").length;
-  }, [summary, tickets]);
+  if (error) {
+    return <ErrorBanner msg={error} onRetry={() => void fetchAll()} />;
+  }
 
+  if (role === "MANAGER") {
+    return (
+      <ManagerDashboard
+        tickets={tickets}
+        summary={summary}
+        feedback={feedback}
+        overtime={overtime}
+        recent={recent}
+        onOpenTicket={onOpenTicket}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+  if (role === "AGENT") {
+    return (
+      <AgentDashboard
+        tickets={tickets}
+        summary={summary}
+        onOpenTicket={onOpenTicket}
+        onNavigate={onNavigate}
+      />
+    );
+  }
+  return <CustomerDashboard tickets={tickets} recent={recent} onOpenTicket={onOpenTicket} onCreateTicket={onCreateTicket} onNavigate={onNavigate} />;
+};
+
+function ManagerDashboard({
+  tickets, summary, feedback, overtime, recent, onOpenTicket, onNavigate
+}: {
+  tickets: Ticket[] | null;
+  summary: SummaryReport | null;
+  feedback: FeedbackReport | null;
+  overtime: Ticket[] | null;
+  recent: Ticket[];
+  onOpenTicket: (id: string) => void;
+  onNavigate: (v: AppView) => void;
+}) {
+  const loadingSummary = summary === null;
+  const statusData = summary
+    ? Object.entries(summary.byStatus).map(([k, v]) => ({
+        label: STATUS_META[k as TicketStatus]?.label ?? k,
+        value: v,
+        color: STATUS_HEX[k as TicketStatus] ?? "#888"
+      }))
+    : [];
+  const typeData = summary
+    ? [
+        { label: "Olay", value: summary.byType.INCIDENT ?? 0, color: "#d32f33" },
+        { label: "Hizmet Talebi", value: summary.byType.SERVICE_REQUEST ?? 0, color: "#2563eb" }
+      ]
+    : [];
   return (
-    <div className="page-container">
-      <WelcomeBanner onCreate={onCreateTicket} />
-
-      {error && <div style={{ marginBottom: "var(--space-4)" }}><ErrorBanner>{error}</ErrorBanner></div>}
-
-      <div className="stats-grid">
-        <StatCard
-          label={t("dashboard.stat.open")}
-          value={openCount}
-          icon={<IconInbox />}
-          loading={tickets === null}
-        />
-        {!isCustomer() && (
+    <div className="col gap-4">
+      <div className="grid" style={{ gridTemplateColumns: "repeat(6, minmax(0,1fr))", gap: 14 }}>
+        {loadingSummary ? Array.from({ length: 6 }).map((_, i) => <SkKPI key={i} />) : summary && (
           <>
-            <StatCard
-              label={t("dashboard.stat.resolved")}
-              value={summary?.resolvedTotal}
-              icon={<IconCheckCircle />}
-              loading={summary === null}
-            />
-            <StatCard
-              label={t("dashboard.stat.sla_breaches")}
-              value={summary?.slaBreachCount}
-              icon={<IconAlertTriangle />}
-              tone={summary && summary.slaBreachCount > 0 ? "danger" : undefined}
-              loading={summary === null}
-            />
-            <StatCard
-              label={t("dashboard.stat.avg_resolution")}
-              value={summary ? `${summary.avgResolutionHours.toFixed(1)}h` : null}
-              icon={<IconClock />}
-              loading={summary === null}
-            />
+            <KPI label="Açık Talep" value={summary.openTickets} tone="blue" icon="inbox" foot="aktif kuyruk" />
+            <KPI label="Toplam Talep" value={summary.totalTickets} tone="purple" icon="ticket" foot="tüm zamanlar" />
+            <KPI label="SLA İhlal" value={summary.slaBreachCount} tone="red" icon="alert" alert foot="son 30 gün" />
+            <KPI label="İhlal Oranı" value={summary.slaBreachRatePercent.toFixed(1)} unit="%" tone="orange" icon="shield" foot="hedef <5%" />
+            <KPI label="Ort. Çözüm" value={summary.avgResolutionHours.toFixed(1)} unit="sa" tone="teal" icon="clock" />
+            <KPI label="Ort. Puan" value={feedback ? feedback.averageRating.toFixed(1) : "—"} tone="amber" icon="star"
+              foot={feedback ? <Stars value={feedback.averageRating} size={11} /> : "veri yok"} />
           </>
         )}
-        {isCustomer() && tickets && (
-          <StatCard
-            label={t("dashboard.stat.total")}
-            value={tickets.length}
-            icon={<IconBarChart />}
-          />
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14, alignItems: "start" }}>
+        <Card title="Durum Dağılımı">
+          {loadingSummary ? <SkChart h={180} /> : (
+            <div className="row" style={{ gap: 16, alignItems: "center" }}>
+              <Donut data={statusData} size={160} thickness={26} centerSub="toplam" />
+              <div className="col" style={{ gap: 7 }}>
+                {statusData.map((d) => (
+                  <span key={d.label} className="legend-item">
+                    <span className="sw" style={{ background: d.color }} />{d.label}<b>{d.value}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+        <Card title="Tür Dağılımı">
+          {loadingSummary ? <SkChart h={180} /> : (
+            <div className="col gap-3" style={{ paddingTop: 6 }}>
+              <Donut data={typeData} size={160} thickness={26} centerLabel={summary?.totalTickets ?? 0} centerSub="talep" />
+              <div className="legend">
+                {typeData.map((d) => (
+                  <span key={d.label} className="legend-item">
+                    <span className="sw" style={{ background: d.color }} />{d.label}<b>{d.value}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {overtime && overtime.length > 0 && (
+        <Card
+          title="Süre Aşımındaki Talepler"
+          head={<span className="badge tone-red" style={{ fontSize: "var(--fs-micro)" }}>Öncelikli</span>}
+          action={<span onClick={() => onNavigate({ name: "tickets" })}>Tümü →</span>}
+          pad={false}
+        >
+          <table className="tbl">
+            <thead><tr><th>ID</th><th>Başlık</th><th>Atanan</th><th>Öncelik</th><th>Durum</th><th style={{ width: 180 }}>SLA</th></tr></thead>
+            <tbody>
+              {overtime.slice(0, 5).map((t) => (
+                <tr key={t.id} onClick={() => onOpenTicket(t.id)}>
+                  <td className="col-id">#{t.id.slice(0, 8)}</td>
+                  <td className="ttl" style={{ maxWidth: 360 }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  </td>
+                  <td>{t.assigneeId ? <Assignee id={t.assigneeId} name={formatActor(t.assigneeId)} /> : <span className="faint">—</span>}</td>
+                  <td><PriorityPill priority={t.priority} /></td>
+                  <td><StatusBadge status={t.status} /></td>
+                  <td>{t.sla && <SLABar sla={t.sla} />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      <Card title="Son Aktivite" action={<span onClick={() => onNavigate({ name: "tickets" })}>Tümü →</span>} pad={false}>
+        {!tickets ? <SkRows n={6} /> : recent.length === 0 ? (
+          <EmptyState icon="ticket" title="Henüz talep yok" body="Sistemde aktif talep bulunmuyor." />
+        ) : (
+          <table className="tbl">
+            <thead><tr><th>ID</th><th>Başlık</th><th>Tür</th><th>Durum</th><th>Öncelik</th><th>Güncellendi</th></tr></thead>
+            <tbody>
+              {recent.map((t) => (
+                <tr key={t.id} onClick={() => onOpenTicket(t.id)}>
+                  <td className="col-id">#{t.id.slice(0, 8)}</td>
+                  <td className="ttl" style={{ maxWidth: 360 }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  </td>
+                  <td><TypeBadge type={t.type} /></td>
+                  <td><StatusBadge status={t.status} /></td>
+                  <td><PriorityPill priority={t.priority} /></td>
+                  <td className="faint nowrap">{formatRelative(t.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function AgentDashboard({ tickets, summary, onOpenTicket, onNavigate }: {
+  tickets: Ticket[] | null;
+  summary: SummaryReport | null;
+  onOpenTicket: (id: string) => void;
+  onNavigate: (v: AppView) => void;
+}) {
+  const { token } = useAuth();
+  const myUsername = useMemo(() => {
+    if (!token) return null;
+    try {
+      const p = parseJwtPayload(token);
+      return (p.preferred_username ?? p.sub ?? null) as string | null;
+    } catch { return null; }
+  }, [token]);
+
+  const my = useMemo(() => (tickets ?? []).filter((t) => t.assigneeId === myUsername), [tickets, myUsername]);
+  const risk = useMemo(() => (tickets ?? []).filter((t) =>
+    t.sla && ["RISK", "BREACH", "WARNING"].includes(t.sla.level) && t.status !== "CLOSED" && t.status !== "RESOLVED"
+  ), [tickets]);
+
+  const waitingCount = my.filter((t) => t.status === "WAITING_FOR_CUSTOMER").length;
+  const resolvedToday = useMemo(() => (tickets ?? []).filter((t) => {
+    if (!t.resolvedAt) return false;
+    const r = new Date(t.resolvedAt);
+    const now = new Date();
+    return r.getFullYear() === now.getFullYear() && r.getMonth() === now.getMonth() && r.getDate() === now.getDate();
+  }).length, [tickets]);
+
+  return (
+    <div className="col gap-4">
+      <div className="grid" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 14 }}>
+        {tickets === null ? Array.from({ length: 4 }).map((_, i) => <SkKPI key={i} />) : (
+          <>
+            <KPI label="Bana Atanan" value={my.length} tone="purple" icon="inbox" foot={`${my.filter((t) => t.priority === "HIGH" || t.priority === "CRITICAL").length} yüksek öncelik`} />
+            <KPI label="Müşteri Bekliyor" value={waitingCount} tone="orange" icon="pause" />
+            <KPI label="Bugün Çözülen" value={resolvedToday} tone="green" icon="check" />
+            <KPI label="SLA Riski" value={risk.length} tone="red" icon="alert" alert={risk.length > 0} />
+          </>
         )}
       </div>
 
-      <div className="dashboard-grid">
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">{t("dashboard.recent.title")}</div>
-              <div className="card-subtitle">{t("dashboard.recent.subtitle")}</div>
-            </div>
-            <Button variant="ghost" size="sm" trailingIcon={<IconArrowRight />} onClick={() => onNavigate({ name: "tickets" })}>
-              {t("dashboard.view_all")}
-            </Button>
-          </div>
-          {tickets === null ? (
-            <div style={{ padding: "var(--space-4)" }}>
-              <Skeleton variant="title" />
-              <div style={{ height: "var(--space-3)" }} />
-              <Skeleton />
-              <div style={{ height: "var(--space-2)" }} />
-              <Skeleton />
-            </div>
-          ) : recent.length === 0 ? (
-            <EmptyState
-              icon={<IconInbox size={20} />}
-              title={t("ticket.empty")}
-              description={t("ticket.empty.desc")}
-              action={
-                <Button variant="primary" leadingIcon={<IconPlus />} onClick={onCreateTicket}>
-                  {t("ticket.create")}
-                </Button>
-              }
-            />
+      <Card title="SLA Riski Altındaki Talepler" head={<span className="badge tone-orange" style={{ fontSize: "var(--fs-micro)" }}>Öncelikli</span>} action={<span onClick={() => onNavigate({ name: "tickets" })}>Tümü →</span>} pad={false}>
+        {tickets === null ? <SkRows n={4} /> : risk.length === 0 ? (
+          <EmptyState icon="check" title="Risk yok" body="SLA riski altında bekleyen talep bulunmuyor." />
+        ) : (
+          <table className="tbl">
+            <thead><tr><th>ID</th><th>Başlık</th><th>Öncelik</th><th>Durum</th><th style={{ width: 180 }}>SLA</th><th>Güncellendi</th></tr></thead>
+            <tbody>
+              {risk.slice(0, 6).map((t) => (
+                <tr key={t.id} onClick={() => onOpenTicket(t.id)}>
+                  <td className="col-id">#{t.id.slice(0, 8)}</td>
+                  <td className="ttl" style={{ maxWidth: 320 }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  </td>
+                  <td><PriorityPill priority={t.priority} /></td>
+                  <td><StatusBadge status={t.status} /></td>
+                  <td>{t.sla && <SLABar sla={t.sla} />}</td>
+                  <td className="faint nowrap">{formatRelative(t.updatedAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+
+      <div className="grid" style={{ gridTemplateColumns: "1.4fr 1fr", gap: 14, alignItems: "start" }}>
+        <Card title="Atanan Taleplerim" action={<span onClick={() => onNavigate({ name: "tickets" })}>Hepsi</span>} pad={false}>
+          {tickets === null ? <SkRows n={4} /> : my.length === 0 ? (
+            <EmptyState icon="inbox" title="Atanan talep yok" body="Şu anda sana atanmış aktif bir talep yok." />
           ) : (
-            <div className="data-table-wrapper" style={{ border: "none", borderRadius: 0 }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>{t("ticket.col.title")}</th>
-                    <th>{t("ticket.col.status")}</th>
-                    {!isCustomer() && <th>{t("ticket.col.priority")}</th>}
-                    <th>{t("dashboard.updated")}</th>
+            <table className="tbl">
+              <thead><tr><th>ID</th><th>Başlık</th><th>Tür</th><th>Durum</th><th>Güncellendi</th></tr></thead>
+              <tbody>
+                {my.slice(0, 6).map((t) => (
+                  <tr key={t.id} onClick={() => onOpenTicket(t.id)}>
+                    <td className="col-id">#{t.id.slice(0, 8)}</td>
+                    <td className="ttl" style={{ maxWidth: 240 }}>
+                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                    </td>
+                    <td><TypeBadge type={t.type} /></td>
+                    <td><StatusBadge status={t.status} /></td>
+                    <td className="faint nowrap">{formatRelative(t.updatedAt)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {recent.map((tk) => (
-                    <tr key={tk.id} tabIndex={0} onClick={() => onOpenTicket(tk.id)}
-                        onKeyDown={(e) => { if (e.key === "Enter") onOpenTicket(tk.id); }}>
-                      <td className="col-title">
-                        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                          <TypeBadge type={tk.type} />
-                          <span>{tk.title}</span>
-                        </div>
-                      </td>
-                      <td><StatusBadge status={tk.status} /></td>
-                      {!isCustomer() && <td><PriorityBadge priority={tk.priority} /></td>}
-                      <td className="text-muted text-xs">{formatRelative(tk.updatedAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+        <Card title="Genel Durum">
+          {summary === null ? <SkChart h={180} /> : (
+            <div className="col gap-3">
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <div className="col"><span className="faint" style={{ fontSize: "var(--fs-cap)" }}>Açık</span><span className="big-num" style={{ fontSize: 24 }}>{summary.openTickets}</span></div>
+                <div className="col"><span className="faint" style={{ fontSize: "var(--fs-cap)" }}>Çözülen</span><span className="big-num" style={{ fontSize: 24 }}>{summary.resolvedTotal}</span></div>
+                <div className="col"><span className="faint" style={{ fontSize: "var(--fs-cap)" }}>İhlal</span><span className="big-num" style={{ fontSize: 24, color: "var(--red)" }}>{summary.slaBreachCount}</span></div>
+              </div>
+              <div className="divider" />
+              <LineChart series={[{ name: "Açık talep", color: "#5b57d6", data: [-3, -1, -2, 0, 1, -1, 0].map((d) => Math.max(0, summary.openTickets + d)), fill: true }]} width={320} height={120} />
             </div>
           )}
-        </section>
+        </Card>
+      </div>
+    </div>
+  );
+}
 
-        <aside style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-          <div className="card card--padded">
-            <div className="section-header" style={{ marginBottom: "var(--space-3)" }}>
-              <div className="section-title">{t("dashboard.quick.title")}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
-              <Button variant="default" block leadingIcon={<IconPlus />} onClick={onCreateTicket}>
-                {t("ticket.create")}
-              </Button>
-              <Button variant="ghost" block leadingIcon={<IconInbox />} onClick={() => onNavigate({ name: "tickets" })}>
-                {t("dashboard.quick.all_tickets")}
-              </Button>
-              {!isCustomer() && (
-                <Button variant="ghost" block leadingIcon={<IconBarChart />} onClick={() => onNavigate({ name: "reports" })}>
-                  {t("dashboard.quick.reports")}
-                </Button>
-              )}
-            </div>
+function CustomerDashboard({ tickets, recent, onOpenTicket, onCreateTicket, onNavigate }: {
+  tickets: Ticket[] | null;
+  recent: Ticket[];
+  onOpenTicket: (id: string) => void;
+  onCreateTicket: () => void;
+  onNavigate: (v: AppView) => void;
+}) {
+  const active = (tickets ?? []).filter((t) => OPEN_STATUSES.includes(t.status));
+  const pendingFeedback = (tickets ?? []).filter((t) => t.status === "CLOSED").length;
+  return (
+    <div className="col gap-4">
+      <div className="grid" style={{ gridTemplateColumns: "1.5fr 1fr 1fr", gap: 14 }}>
+        <div className="card" style={{ background: "var(--accent)", border: "none", display: "flex", alignItems: "center", gap: 16, padding: "18px 22px", color: "#fff" }}>
+          <div style={{ width: 44, height: 44, borderRadius: "var(--r-md)", background: "rgba(255,255,255,.18)", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+            <Icon name="plus" size={24} strokeWidth={2} />
           </div>
+          <div className="col" style={{ gap: 2 }}>
+            <span style={{ fontWeight: 650, fontSize: 16 }}>Yeni Talep Oluştur</span>
+            <span style={{ fontSize: "var(--fs-sm)", opacity: .85 }}>Sorununuzu birkaç adımda iletin</span>
+          </div>
+          <button className="btn btn-lg" style={{ marginLeft: "auto", background: "#fff", color: "var(--accent)", border: "none" }} onClick={onCreateTicket}>
+            Başla →
+          </button>
+        </div>
+        {tickets === null ? <><SkKPI /><SkKPI /></> : (
+          <>
+            <KPI label="Aktif Taleplerim" value={active.length} tone="purple" icon="inbox" foot={`${active.filter((t) => t.status === "WAITING_FOR_CUSTOMER").length} yanıt bekliyor`} />
+            <KPI label="Toplam Talebim" value={tickets.length} tone="blue" icon="ticket" foot={`${pendingFeedback} kapalı`} />
+          </>
+        )}
+      </div>
 
-          {summary && !isCustomer() && (
-            <div className="card">
-              <div className="card-header">
-                <div className="card-title">{t("dashboard.status_breakdown")}</div>
-              </div>
-              <div className="card-body">
-                <div className="distribution">
-                  {Object.entries(summary.byStatus).map(([status, count]) => {
-                    const total = summary.totalTickets || 1;
-                    const pct = (count / total) * 100;
-                    return (
-                      <div key={status} className="distribution-row" style={{ gridTemplateColumns: "1fr 80px 30px" }}>
-                        <div className="distribution-label">
-                          <StatusBadge status={status as Ticket["status"]} />
-                        </div>
-                        <div className="distribution-track">
-                          <div className="distribution-fill" style={{ width: `${pct}%` }} />
-                        </div>
-                        <div className="distribution-value">{count}</div>
-                      </div>
-                    );
-                  })}
+      <Card title="Son Taleplerim" action={<span onClick={() => onNavigate({ name: "tickets" })}>Tümünü gör →</span>} head={<span className="faint" style={{ fontSize: "var(--fs-cap)" }}>Son 6</span>}>
+        {tickets === null ? (
+          <div className="grid" style={{ gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+            {Array.from({ length: 3 }).map((_, i) => <SkChart key={i} h={110} />)}
+          </div>
+        ) : recent.length === 0 ? (
+          <EmptyState
+            icon="ticket"
+            title="Henüz talebiniz yok"
+            body="Yeni bir talep oluşturarak başlayın."
+            action={<button className="btn btn-primary btn-sm" onClick={onCreateTicket}><Icon name="plus" size={13} />Yeni Talep</button>}
+          />
+        ) : (
+          <div className="grid" style={{ gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {recent.map((t) => (
+              <div key={t.id} className="card card-pad" style={{ cursor: "pointer" }} onClick={() => onOpenTicket(t.id)}>
+                <div className="row" style={{ justifyContent: "space-between", marginBottom: 9 }}>
+                  <span className="mono" style={{ fontSize: "var(--fs-cap)", color: "var(--text-tertiary)" }}>#{t.id.slice(0, 8)}</span>
+                  <StatusBadge status={t.status} sm />
+                </div>
+                <div style={{ fontWeight: 550, fontSize: "var(--fs-body)", marginBottom: 10, lineHeight: 1.35 }}>{t.title}</div>
+                <div className="row" style={{ gap: 8 }}>
+                  <TypeBadge type={t.type} />
+                  <span className="faint nowrap" style={{ fontSize: "var(--fs-cap)", marginLeft: "auto" }}>{formatRelative(t.updatedAt)}</span>
                 </div>
               </div>
-            </div>
-          )}
-        </aside>
-      </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {pendingFeedback > 0 && (
+        <WarnBanner action={<button className="btn btn-sm banner-act" style={{ borderColor: "color-mix(in srgb, var(--orange) 40%, var(--border))", color: "var(--orange)" }} onClick={() => onNavigate({ name: "tickets" })}>Değerlendir</button>}>
+          <b>{pendingFeedback} kapalı talebiniz geri bildirim bekliyor.</b> Hizmet kalitesini değerlendirmek için tıklayın.
+        </WarnBanner>
+      )}
     </div>
   );
-};
-
-const WelcomeBanner = ({ onCreate }: { onCreate: () => void }) => {
-  const { t } = useTranslation();
-  const { token } = useAuth();
-  const hour = new Date().getHours();
-  const greetKey =
-    hour < 6 ? "dashboard.greet.night" :
-    hour < 12 ? "dashboard.greet.morning" :
-    hour < 18 ? "dashboard.greet.afternoon" :
-    "dashboard.greet.evening";
-
-  const userName = (() => {
-    if (!token) return "";
-    try {
-      const p = parseJwtPayload(token);
-      return (p.given_name ?? p.name ?? p.preferred_username ?? "") as string;
-    } catch { return ""; }
-  })();
-
-  return (
-    <div className="welcome-banner">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap" }}>
-        <div>
-          <h1 className="welcome-title">
-            {t(greetKey)}{userName ? `, ${userName}` : ""}
-          </h1>
-          <p className="welcome-subtitle">{t("dashboard.welcome.subtitle")}</p>
-        </div>
-        <Button variant="primary" leadingIcon={<IconPlus />} onClick={onCreate}>
-          {t("ticket.create")}
-        </Button>
-      </div>
-    </div>
-  );
-};
-
-const StatCard = ({
-  label,
-  value,
-  icon,
-  tone,
-  loading
-}: {
-  label: string;
-  value: number | string | null | undefined;
-  icon: JSX.Element;
-  tone?: "danger";
-  loading?: boolean;
-}) => (
-  <div className="stat-card">
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <div className="stat-card-label">{label}</div>
-      <span style={{ color: tone === "danger" ? "var(--color-danger)" : "var(--text-muted)" }}>
-        {icon}
-      </span>
-    </div>
-    <div className="stat-card-value" style={tone === "danger" ? { color: "var(--color-danger)" } : undefined}>
-      {loading ? <Skeleton variant="title" width={60} /> : (value ?? 0)}
-    </div>
-  </div>
-);
+}

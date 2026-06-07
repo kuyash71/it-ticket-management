@@ -1,206 +1,87 @@
-import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { ReactNode } from "react";
 
 import { useAuth } from "../auth/AuthProvider";
+import { useTheme } from "../theme/ThemeProvider";
+import { Card } from "../components/itsm/Common";
+import { Icon } from "../components/itsm/Icon";
+import { Avatar } from "../components/itsm/Primitives";
 import { parseJwtPayload } from "../lib/jwt";
-import { useRole } from "../auth/useRole";
-import { Avatar } from "../components/ui/Avatar";
-import { Button } from "../components/ui/Button";
-import {
-  IconBell,
-  IconGlobe,
-  IconLogOut,
-  IconSun,
-  IconUser
-} from "../components/ui/Icon";
-import { LanguageSwitcher } from "../components/LanguageSwitcher";
-import { ThemeToggle } from "../components/ui/ThemeToggle";
 
-type SectionId = "profile" | "preferences" | "notifications";
-
-type Profile = {
-  name: string;
-  email: string;
-  username: string;
-};
+function Row({ k, sub, right }: { k: string; sub?: string; right: ReactNode }) {
+  return (
+    <div className="row" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border-faint)", alignItems: "flex-start" }}>
+      <div className="col" style={{ flex: 1, gap: 2 }}>
+        <span style={{ fontWeight: 550, fontSize: "var(--fs-body)" }}>{k}</span>
+        {sub && <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>{sub}</span>}
+      </div>
+      <div className="row" style={{ gap: 10 }}>{right}</div>
+    </div>
+  );
+}
 
 export const SettingsPage = () => {
-  const { t } = useTranslation();
-  const { token, logout } = useAuth();
-  const { isManager, isAgent } = useRole();
-  const [section, setSection] = useState<SectionId>("profile");
+  const { i18n } = useTranslation();
+  const { token, roles, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
 
-  const profile = useMemo<Profile>(() => parseProfile(token), [token]);
-  const roleLabel = isManager() ? t("role.manager") : isAgent() ? t("role.agent") : t("role.customer");
-
-  const sections: { id: SectionId; label: string; icon: ReactNode }[] = [
-    { id: "profile", label: t("settings.profile"), icon: <IconUser /> },
-    { id: "preferences", label: t("settings.preferences"), icon: <IconSun /> },
-    { id: "notifications", label: t("settings.notifications"), icon: <IconBell /> }
-  ];
+  const payload = token ? safeParse(token) : null;
+  const name = (payload?.name as string) ?? (payload?.preferred_username as string) ?? "Kullanıcı";
+  const email = (payload?.email as string) ?? "—";
+  const roleLabel = roles.includes("MANAGER") ? "Yönetici" : roles.includes("AGENT") ? "Uzman" : "Müşteri";
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{t("nav.settings")}</h1>
-          <p className="page-subtitle">{t("settings.subtitle")}</p>
-        </div>
-      </div>
+    <div className="content-narrow col" style={{ gap: 16, maxWidth: 820 }}>
+      <Card title="Görünüm" pad={false}>
+        <Row k="Dil" sub="Arayüz dili" right={(
+          <div className="seg">
+            {(["tr", "en"] as const).map((l) => (
+              <button key={l} className={i18n.language.startsWith(l) ? "on" : ""} onClick={() => void i18n.changeLanguage(l)}>
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        )} />
+        <Row k="Tema" sub="Açık veya koyu tema" right={(
+          <div className="seg">
+            {([["light", "Açık", "sun"], ["dark", "Koyu", "moon"], ["system", "Sistem", "settings"]] as const).map(([id, lbl, ic]) => (
+              <button key={id} className={theme === id ? "on" : ""} onClick={() => setTheme(id)}>
+                <Icon name={ic} size={11} style={{ marginRight: 5 }} />{lbl}
+              </button>
+            ))}
+          </div>
+        )} />
+      </Card>
 
-      <div className="settings-shell">
-        <nav className="settings-nav" aria-label={t("settings.nav.aria")}>
-          {sections.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="nav-item"
-              aria-current={section === s.id ? "page" : undefined}
-              onClick={() => setSection(s.id)}
-            >
-              {s.icon}
-              <span>{s.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div>
-          {section === "profile" && (
-            <ProfileSection profile={profile} roleLabel={roleLabel} onLogout={logout} />
-          )}
-          {section === "preferences" && <PreferencesSection />}
-          {section === "notifications" && <NotificationsSection />}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ProfileSection = ({
-  profile,
-  roleLabel,
-  onLogout
-}: {
-  profile: Profile;
-  roleLabel: string;
-  onLogout: () => void;
-}) => {
-  const { t } = useTranslation();
-  return (
-    <>
-      <SettingsCard
-        title={t("settings.profile")}
-        description={t("settings.profile.desc")}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
-          <Avatar name={profile.name || profile.username} size="xl" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ fontSize: "var(--text-md)", fontWeight: "var(--weight-semibold)" }}>
-              {profile.name || profile.username}
+      <Card title="Profil" head={<span className="badge tone-gray">Keycloak · salt okunur</span>}>
+        <div className="row" style={{ gap: 16, padding: "6px 0" }}>
+          <Avatar name={name} size="lg" />
+          <div className="col" style={{ flex: 1 }}>
+            <div className="row" style={{ gap: 8 }}>
+              <b style={{ fontSize: "var(--fs-card)" }}>{name}</b>
+              <span className="badge tone-purple">{roleLabel}</span>
             </div>
-            <div className="text-sm text-muted">{profile.email}</div>
-            <div className="text-xs text-muted" style={{ marginTop: 4 }}>
-              <span className="badge badge--sm">{roleLabel}</span>
-            </div>
+            <span className="faint" style={{ fontSize: "var(--fs-sm)" }}>{email}</span>
           </div>
         </div>
+      </Card>
 
-        <ReadOnlyField label={t("settings.profile.username")} value={profile.username} />
-        <ReadOnlyField label={t("settings.profile.email")} value={profile.email || "—"} />
-        <ReadOnlyField label={t("settings.profile.fullname")} value={profile.name || "—"} />
-        <p className="text-xs text-muted">{t("settings.profile.managed_by_keycloak")}</p>
-      </SettingsCard>
-
-      <SettingsCard title={t("settings.session")} description={t("settings.session.desc")}>
-        <div className="settings-row">
-          <div className="settings-row-label">
-            <div className="settings-row-title">{t("auth.logout")}</div>
-            <div className="settings-row-description">{t("settings.session.logout_desc")}</div>
-          </div>
-          <Button variant="danger" leadingIcon={<IconLogOut />} onClick={onLogout}>
-            {t("auth.logout")}
-          </Button>
-        </div>
-      </SettingsCard>
-    </>
-  );
-};
-
-const PreferencesSection = () => {
-  const { t } = useTranslation();
-  return (
-    <SettingsCard title={t("settings.preferences")} description={t("settings.preferences.desc")}>
-      <div className="settings-row">
-        <div className="settings-row-label">
-          <div className="settings-row-title">{t("theme.title")}</div>
-          <div className="settings-row-description">{t("settings.theme.desc")}</div>
-        </div>
-        <ThemeToggle />
-      </div>
-      <div className="settings-row">
-        <div className="settings-row-label">
-          <div className="settings-row-title">
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <IconGlobe /> {t("settings.language")}
-            </span>
-          </div>
-          <div className="settings-row-description">{t("settings.language.desc")}</div>
-        </div>
-        <LanguageSwitcher />
-      </div>
-    </SettingsCard>
-  );
-};
-
-const NotificationsSection = () => {
-  const { t } = useTranslation();
-  return (
-    <SettingsCard title={t("settings.notifications")} description={t("settings.notifications.desc")}>
-      <p className="text-sm text-muted">{t("settings.notifications.coming_soon")}</p>
-    </SettingsCard>
-  );
-};
-
-const SettingsCard = ({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) => (
-  <section className="settings-section">
-    <header className="settings-section-header">
-      <div className="settings-section-title">{title}</div>
-      {description && <div className="settings-section-description">{description}</div>}
-    </header>
-    <div className="settings-section-body">{children}</div>
-  </section>
-);
-
-const ReadOnlyField = ({ label, value }: { label: string; value: string }) => (
-  <div className="settings-row">
-    <div className="settings-row-label">
-      <div className="settings-row-title">{label}</div>
+      <Card title="Güvenlik" pad={false}>
+        <Row k="İki Faktörlü Doğrulama (TOTP)" sub="Authenticator uygulaması zorunlu" right={(
+          <span className="badge tone-green">
+            <Icon name="shield" size={11} className="ic" strokeWidth={2.2} />Aktif
+          </span>
+        )} />
+        <Row k="Oturum" sub="Hesabınızdan çıkış yapın" right={(
+          <button className="btn btn-danger" onClick={logout}>
+            <Icon name="logout" size={13} />Çıkış Yap
+          </button>
+        )} />
+      </Card>
     </div>
-    <div className="text-sm" style={{ color: "var(--text-secondary)", fontFamily: label.toLowerCase().includes("id") ? "var(--font-mono)" : undefined }}>
-      {value}
-    </div>
-  </div>
-);
+  );
+};
 
-function parseProfile(token?: string): Profile {
-  if (!token) return { name: "", email: "", username: "User" };
-  try {
-    const payload = parseJwtPayload(token) as Record<string, string>;
-    return {
-      name: payload.name ?? `${payload.given_name ?? ""} ${payload.family_name ?? ""}`.trim(),
-      email: payload.email ?? "",
-      username: payload.preferred_username ?? payload.email ?? "User"
-    };
-  } catch {
-    return { name: "", email: "", username: "User" };
-  }
+function safeParse(token: string): Record<string, unknown> | null {
+  try { return parseJwtPayload(token); } catch { return null; }
 }

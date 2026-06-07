@@ -1,288 +1,340 @@
 import { useCallback, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 import { http } from "../api/http";
-import { Button } from "../components/ui/Button";
-import { ErrorBanner } from "../components/ui/ErrorBanner";
-import {
-  IconAlertTriangle,
-  IconBarChart,
-  IconCheckCircle,
-  IconClock,
-  IconInbox,
-  IconRefresh,
-  IconTrend
-} from "../components/ui/Icon";
-import { Skeleton } from "../components/ui/Skeleton";
-import { StatusBadge, TypeBadge } from "../components/ui/Badge";
-import type { SummaryReport, TicketStatus, TicketType } from "../types/api";
+import { useRole } from "../auth/useRole";
+import { Card, ErrorBanner, SkChart, SkKPI, SkRows } from "../components/itsm/Common";
+import { Icon } from "../components/itsm/Icon";
+import { Assignee, KPI, PriorityPill, SLABar, StatusBadge, Stars } from "../components/itsm/Primitives";
+import { AreaChart, Donut, Gauge, HBar, RatingDist, StackedBar } from "../components/itsm/Charts";
+import { STATUS_HEX, STATUS_META } from "../components/itsm/meta";
+import { formatActor, formatRelative } from "../lib/format";
+import type { SummaryReport, Ticket, TicketStatus } from "../types/api";
+
+type FeedbackReport = {
+  totalFeedback: number;
+  averageRating: number;
+  ratingDistribution: Record<string, number>;
+  perAgent: { agentId: string; count: number; averageRating: number }[];
+};
+
+type AgentWorkloadReport = {
+  agents: { agentId: string; total: number; byStatus: Record<string, number> }[];
+};
+
+type Section = "summary" | "feedback" | "workload" | "overtime";
 
 export const ReportsPage = () => {
-  const { t } = useTranslation();
-  const [report, setReport] = useState<SummaryReport | null>(null);
+  const { isManager } = useRole();
+  const [section, setSection] = useState<Section>("summary");
+  const [summary, setSummary] = useState<SummaryReport | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackReport | null>(null);
+  const [workload, setWorkload] = useState<AgentWorkloadReport | null>(null);
+  const [overtime, setOvertime] = useState<Ticket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchReport = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setError(null);
     try {
-      const res = await http.get<SummaryReport>("/api/reports/summary");
-      setReport(res.data);
-    } catch {
-      setError(t("error.fetch_failed"));
-    }
-  }, [t]);
+      const s = await http.get<SummaryReport>("/api/v1/reports/summary");
+      setSummary(s.data);
+      if (isManager()) {
+        try { setFeedback((await http.get<FeedbackReport>("/api/v1/reports/feedback")).data); } catch {/* */}
+        try { setWorkload((await http.get<AgentWorkloadReport>("/api/v1/reports/agents/workload")).data); } catch {/* */}
+        try { setOvertime((await http.get<Ticket[]>("/api/v1/tickets/overtime")).data); } catch {/* */}
+      }
+    } catch { setError("Raporlar yüklenemedi."); }
+  }, [isManager]);
 
-  useEffect(() => {
-    void fetchReport();
-  }, [fetchReport]);
+  useEffect(() => { void fetchAll(); }, [fetchAll]);
+
+  const tabs: { id: Section; label: string }[] = [
+    { id: "summary", label: "Özet" },
+    ...(isManager() ? [
+      { id: "feedback" as Section, label: "Geri Bildirim" },
+      { id: "workload" as Section, label: "Uzman Yükü" },
+      { id: "overtime" as Section, label: "Süre Aşımı" }
+    ] : [])
+  ];
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{t("report.title")}</h1>
-          <p className="page-subtitle">{t("report.subtitle")}</p>
-        </div>
-        <div className="page-actions">
-          <Button variant="ghost" size="sm" leadingIcon={<IconRefresh />} onClick={() => void fetchReport()}>
-            {t("action.refresh")}
-          </Button>
-        </div>
+    <div className="col gap-4">
+      {error && <ErrorBanner msg={error} onRetry={() => void fetchAll()} />}
+      <div className="tabs">
+        {tabs.map((t) => (
+          <div key={t.id} className={"tab " + (section === t.id ? "active" : "")} onClick={() => setSection(t.id)}>
+            {t.label}
+          </div>
+        ))}
       </div>
 
-      {error && (
-        <div style={{ marginBottom: "var(--space-4)" }}>
-          <ErrorBanner>{error}</ErrorBanner>
-        </div>
-      )}
+      {section === "summary" && <SummarySection summary={summary} />}
+      {section === "feedback" && <FeedbackSection feedback={feedback} />}
+      {section === "workload" && <WorkloadSection workload={workload} />}
+      {section === "overtime" && <OvertimeSection overtime={overtime} />}
+    </div>
+  );
+};
 
-      <div className="stats-grid">
-        <ReportStat
-          label={t("report.open_tickets")}
-          value={report?.openTickets}
-          icon={<IconInbox />}
-          loading={report === null}
-        />
-        <ReportStat
-          label={t("report.total_tickets")}
-          value={report?.totalTickets}
-          icon={<IconBarChart />}
-          loading={report === null}
-        />
-        <ReportStat
-          label={t("report.resolved_total")}
-          value={report?.resolvedTotal}
-          icon={<IconCheckCircle />}
-          loading={report === null}
-        />
-        <ReportStat
-          label={t("report.sla_breach_count")}
-          value={report?.slaBreachCount}
-          icon={<IconAlertTriangle />}
-          tone={report && report.slaBreachCount > 0 ? "danger" : undefined}
-          loading={report === null}
-        />
-        <ReportStat
-          label={t("report.sla_breach_rate")}
-          value={report ? `${report.slaBreachRatePercent.toFixed(1)}%` : null}
-          icon={<IconTrend />}
-          tone={report && report.slaBreachRatePercent > 20 ? "danger" : undefined}
-          loading={report === null}
-        />
-        <ReportStat
-          label={t("report.avg_resolution_hours")}
-          value={report ? `${report.avgResolutionHours.toFixed(1)}h` : null}
-          icon={<IconClock />}
-          loading={report === null}
-        />
+function SummarySection({ summary }: { summary: SummaryReport | null }) {
+  const loading = summary === null;
+  const statusData = summary
+    ? Object.entries(summary.byStatus).map(([k, v]) => ({
+        label: STATUS_META[k as TicketStatus]?.label ?? k,
+        value: v,
+        color: STATUS_HEX[k as TicketStatus] ?? "#888"
+      }))
+    : [];
+  const typeData = summary
+    ? [
+        { label: "Olay", value: summary.byType.INCIDENT ?? 0, color: "#d32f33" },
+        { label: "Hizmet", value: summary.byType.SERVICE_REQUEST ?? 0, color: "#2563eb" }
+      ]
+    : [];
+  return (
+    <div className="col gap-4">
+      <div className="grid" style={{ gridTemplateColumns: "repeat(6, minmax(0,1fr))", gap: 14 }}>
+        {loading ? Array.from({ length: 6 }).map((_, i) => <SkKPI key={i} />) : summary && (
+          <>
+            <KPI label="Açık" value={summary.openTickets} tone="blue" icon="inbox" />
+            <KPI label="Toplam" value={summary.totalTickets} tone="gray" icon="ticket" />
+            <KPI label="Çözülen" value={summary.resolvedTotal} tone="green" icon="check" />
+            <KPI label="SLA İhlal" value={summary.slaBreachCount} tone="red" icon="alert" alert />
+            <KPI label="İhlal Oranı" value={summary.slaBreachRatePercent.toFixed(1)} unit="%" tone="orange" icon="shield" />
+            <KPI label="Ort. Çözüm" value={summary.avgResolutionHours.toFixed(1)} unit="sa" tone="teal" icon="clock" />
+          </>
+        )}
       </div>
 
-      <div className="dashboard-grid">
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">{t("report.by_status")}</div>
-              <div className="card-subtitle">{t("report.by_status.subtitle")}</div>
-            </div>
-          </div>
-          <div className="card-body">
-            {report === null ? (
-              <DistributionSkeleton />
-            ) : (
-              <StatusDistribution data={report.byStatus} total={report.totalTickets} />
-            )}
-          </div>
-        </section>
-
-        <aside style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-          <section className="card">
-            <div className="card-header">
-              <div className="card-title">{t("report.by_type")}</div>
-            </div>
-            <div className="card-body">
-              {report === null ? (
-                <DistributionSkeleton rows={2} />
-              ) : (
-                <TypeDistribution data={report.byType} total={report.totalTickets} />
-              )}
-            </div>
-          </section>
-
-          {report && (
-            <section className="card">
-              <div className="card-header">
-                <div className="card-title">{t("report.sla_overview")}</div>
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 14, alignItems: "start" }}>
+        <Card title="Durum Dağılımı">
+          {loading ? <SkChart h={180} /> : <HBar data={statusData} width={320} />}
+        </Card>
+        <Card title="Tür Dağılımı">
+          {loading ? <SkChart h={180} /> : (
+            <div className="col gap-3" style={{ alignItems: "center" }}>
+              <Donut data={typeData} size={150} thickness={26} centerLabel={summary?.totalTickets ?? 0} centerSub="toplam" />
+              <div className="legend">
+                {typeData.map((d) => (
+                  <span key={d.label} className="legend-item">
+                    <span className="sw" style={{ background: d.color }} />{d.label}<b>{d.value}</b>
+                  </span>
+                ))}
               </div>
-              <div className="card-body">
-                <SLAOverview report={report} />
-              </div>
-            </section>
+            </div>
           )}
-        </aside>
+        </Card>
+        <Card title="SLA Uyum Oranı" head={<span className="faint" style={{ fontSize: "var(--fs-cap)" }}>Hedef ≥%95</span>}>
+          {loading ? <SkChart h={180} /> : summary && (
+            <div className="col gap-2" style={{ alignItems: "center" }}>
+              <Gauge value={100 - summary.slaBreachRatePercent} label={`%${(100 - summary.slaBreachRatePercent).toFixed(1)}`} sub="uyum" color="#11874a" />
+              <div className="row" style={{ gap: 18, fontSize: "var(--fs-cap)" }}>
+                <span className="row" style={{ gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: "#11874a" }} />
+                  <b className="tnum">{summary.resolvedTotal - summary.slaBreachCount}</b>
+                  <span className="faint">uyumlu</span>
+                </span>
+                <span className="row" style={{ gap: 5 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: "#d32f33" }} />
+                  <b className="tnum" style={{ color: "var(--red)" }}>{summary.slaBreachCount}</b>
+                  <span className="faint">ihlal</span>
+                </span>
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );
-};
+}
 
-const ReportStat = ({
-  label,
-  value,
-  icon,
-  tone,
-  loading
-}: {
-  label: string;
-  value: number | string | null | undefined;
-  icon: JSX.Element;
-  tone?: "danger";
-  loading?: boolean;
-}) => (
-  <div className="stat-card">
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <div className="stat-card-label">{label}</div>
-      <span style={{ color: tone === "danger" ? "var(--color-danger)" : "var(--text-muted)" }}>
-        {icon}
-      </span>
-    </div>
-    <div
-      className="stat-card-value"
-      style={tone === "danger" ? { color: "var(--color-danger)" } : undefined}
-    >
-      {loading ? <Skeleton variant="title" width={60} /> : (value ?? 0)}
-    </div>
-  </div>
-);
-
-const StatusDistribution = ({ data, total }: { data: Record<string, number>; total: number }) => {
-  const entries = Object.entries(data).sort(([, a], [, b]) => b - a);
-  const safeTotal = total || 1;
+function FeedbackSection({ feedback }: { feedback: FeedbackReport | null }) {
+  const loading = feedback === null;
   return (
-    <div className="distribution">
-      {entries.map(([status, count]) => {
-        const pct = (count / safeTotal) * 100;
-        return (
-          <div key={status} className="distribution-row">
-            <div className="distribution-label">
-              <StatusBadge status={status as TicketStatus} />
+    <div className="col gap-4">
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 14, alignItems: "stretch" }}>
+        <Card title="Ortalama Puan">
+          {loading ? <SkChart h={140} /> : feedback && (
+            <div className="col" style={{ gap: 6 }}>
+              <div className="big-num tnum" style={{ fontSize: 56, color: "var(--amber)" }}>{feedback.averageRating.toFixed(1)}</div>
+              <Stars value={feedback.averageRating} size={18} />
+              <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>{feedback.totalFeedback} değerlendirme üzerinden</span>
             </div>
-            <div className="distribution-track">
-              <div className="distribution-fill" style={{ width: `${pct}%` }} />
+          )}
+        </Card>
+        <Card title="Puan Dağılımı">
+          {loading ? <SkChart h={140} /> : feedback && (
+            <RatingDist
+              dist={Object.fromEntries(Object.entries(feedback.ratingDistribution).map(([k, v]) => [Number(k), Number(v)]))}
+              total={feedback.totalFeedback}
+              width={300}
+            />
+          )}
+        </Card>
+        <Card title="Toplam Geri Bildirim">
+          {loading ? <SkChart h={140} /> : feedback && (
+            <div className="col gap-3">
+              <div className="big-num tnum">{feedback.totalFeedback}</div>
+              <div className="faint" style={{ fontSize: "var(--fs-sm)" }}>kapanan talepler üzerinden alınan</div>
             </div>
-            <div className="distribution-value">{count}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const TypeDistribution = ({ data, total }: { data: Record<string, number>; total: number }) => {
-  const entries = Object.entries(data).sort(([, a], [, b]) => b - a);
-  const safeTotal = total || 1;
-  return (
-    <div className="distribution">
-      {entries.map(([type, count]) => {
-        const pct = (count / safeTotal) * 100;
-        return (
-          <div key={type} className="distribution-row">
-            <div className="distribution-label">
-              <TypeBadge type={type as TicketType} />
-            </div>
-            <div className="distribution-track">
-              <div className="distribution-fill" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="distribution-value">{count}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const SLAOverview = ({ report }: { report: SummaryReport }) => {
-  const { t } = useTranslation();
-  const total = report.totalTickets || 1;
-  const breachPct = report.slaBreachRatePercent;
-  const resolvedPct = (report.resolvedTotal / total) * 100;
-
-  const breachClass =
-    breachPct >= 50 ? "distribution-fill--danger" :
-    breachPct >= 20 ? "distribution-fill--warning" :
-    "distribution-fill--success";
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
-      <SLABar
-        label={t("report.sla_breach_rate")}
-        valueLabel={`${breachPct.toFixed(1)}%`}
-        pct={Math.min(breachPct, 100)}
-        fillClass={breachClass}
-        caption={t("report.sla_breach_caption", { count: report.slaBreachCount, total })}
-      />
-      <SLABar
-        label={t("report.resolution_rate")}
-        valueLabel={`${resolvedPct.toFixed(0)}%`}
-        pct={resolvedPct}
-        fillClass="distribution-fill--success"
-        caption={t("report.resolved_caption", { count: report.resolvedTotal, total })}
-      />
-    </div>
-  );
-};
-
-const SLABar = ({
-  label,
-  valueLabel,
-  pct,
-  fillClass,
-  caption
-}: {
-  label: string;
-  valueLabel: string;
-  pct: number;
-  fillClass: string;
-  caption: string;
-}) => (
-  <div>
-    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-xs)", marginBottom: "var(--space-1)" }}>
-      <span style={{ color: "var(--text-secondary)", fontWeight: "var(--weight-medium)" }}>{label}</span>
-      <span style={{ color: "var(--text)", fontVariantNumeric: "tabular-nums" }}>{valueLabel}</span>
-    </div>
-    <div className="distribution-track">
-      <div className={`distribution-fill ${fillClass}`} style={{ width: `${pct}%` }} />
-    </div>
-    <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: "var(--space-1)" }}>{caption}</div>
-  </div>
-);
-
-const DistributionSkeleton = ({ rows = 5 }: { rows?: number }) => (
-  <div className="distribution">
-    {Array.from({ length: rows }).map((_, i) => (
-      <div key={i} className="distribution-row">
-        <Skeleton width={100} />
-        <Skeleton />
-        <Skeleton width={30} />
+          )}
+        </Card>
       </div>
-    ))}
-  </div>
-);
+
+      <Card title="Uzman Bazında Geri Bildirim" pad={false}>
+        {loading ? <SkRows n={4} /> : feedback && feedback.perAgent.length === 0 ? (
+          <p className="faint" style={{ padding: 16, fontSize: "var(--fs-sm)" }}>Henüz veri yok.</p>
+        ) : feedback && (
+          <table className="tbl">
+            <thead><tr><th>Uzman</th><th>Talep Sayısı</th><th>Ortalama</th><th style={{ width: 200 }}>Puan</th></tr></thead>
+            <tbody>
+              {feedback.perAgent.map((a) => (
+                <tr key={a.agentId}>
+                  <td><Assignee id={a.agentId} name={formatActor(a.agentId)} /></td>
+                  <td className="tnum">{a.count}</td>
+                  <td><span className="tnum" style={{ fontWeight: 600 }}>{a.averageRating.toFixed(1)}</span></td>
+                  <td><Stars value={a.averageRating} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function WorkloadSection({ workload }: { workload: AgentWorkloadReport | null }) {
+  const loading = workload === null;
+  const cats = workload ? workload.agents.map((a) => ({
+    label: formatActor(a.agentId).slice(0, 12),
+    total: a.total,
+    values: a.byStatus
+  })) : [];
+  const keys = [
+    { id: "NEW", label: "Yeni", color: STATUS_HEX.NEW },
+    { id: "IN_PROGRESS", label: "İşlemde", color: STATUS_HEX.IN_PROGRESS },
+    { id: "WAITING_FOR_CUSTOMER", label: "Müşteri", color: STATUS_HEX.WAITING_FOR_CUSTOMER },
+    { id: "RESOLVED", label: "Çözüldü", color: STATUS_HEX.RESOLVED }
+  ];
+  const sorted = workload ? [...workload.agents].sort((a, b) => b.total - a.total) : [];
+  return (
+    <div className="col gap-4">
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+        <Card title="En Yüklü">
+          {loading || !sorted.length ? <SkChart h={80} /> : (
+            <div className="row" style={{ gap: 10 }}>
+              <Assignee id={sorted[0].agentId} name={formatActor(sorted[0].agentId)} sub role="Uzman" />
+              <span className="badge tone-red" style={{ marginLeft: "auto" }}>{sorted[0].total}</span>
+            </div>
+          )}
+        </Card>
+        <Card title="En Az Yüklü">
+          {loading || !sorted.length ? <SkChart h={80} /> : (
+            <div className="row" style={{ gap: 10 }}>
+              <Assignee id={sorted[sorted.length - 1].agentId} name={formatActor(sorted[sorted.length - 1].agentId)} sub role="Uzman" />
+              <span className="badge tone-green" style={{ marginLeft: "auto" }}>{sorted[sorted.length - 1].total}</span>
+            </div>
+          )}
+        </Card>
+        <Card title="Ortalama">
+          {loading ? <SkChart h={80} /> : workload && (
+            <div className="row" style={{ gap: 12 }}>
+              <div className="kpi-ic" style={{ width: 36, height: 36, ["--tone" as any]: "var(--teal)" } as any}>
+                <Icon name="users" size={18} />
+              </div>
+              <div className="col">
+                <div className="big-num tnum">{workload.agents.length ? (workload.agents.reduce((s, a) => s + a.total, 0) / workload.agents.length).toFixed(1) : "0"}</div>
+                <div className="faint" style={{ fontSize: "var(--fs-cap)" }}>uzman başına aktif</div>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <Card title="Uzman Yükü" head={<span className="faint" style={{ fontSize: "var(--fs-cap)" }}>Durum bazında</span>}>
+        {loading ? <SkChart h={220} /> : cats.length === 0 ? (
+          <p className="faint" style={{ fontSize: "var(--fs-sm)" }}>Veri yok.</p>
+        ) : (
+          <div className="col gap-3">
+            <StackedBar categories={cats} keys={keys} width={1000} height={220} />
+            <div className="legend">
+              {keys.map((k) => (
+                <span key={k.id} className="legend-item">
+                  <span className="sw" style={{ background: k.color }} />{k.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      <Card title="Uzman Detay" pad={false}>
+        {loading ? <SkRows n={4} /> : workload && workload.agents.length === 0 ? (
+          <p className="faint" style={{ padding: 16, fontSize: "var(--fs-sm)" }}>Henüz veri yok.</p>
+        ) : workload && (
+          <table className="tbl">
+            <thead>
+              <tr><th>Uzman</th><th>Toplam</th><th>Yeni</th><th>İşlemde</th><th>Müşteri Bekliyor</th><th>Çözüldü</th></tr>
+            </thead>
+            <tbody>
+              {workload.agents.map((a) => (
+                <tr key={a.agentId}>
+                  <td><Assignee id={a.agentId} name={formatActor(a.agentId)} sub role="Uzman" /></td>
+                  <td><b className="tnum">{a.total}</b></td>
+                  <td className="tnum">{a.byStatus.NEW || 0}</td>
+                  <td className="tnum"><span style={{ color: STATUS_HEX.IN_PROGRESS, fontWeight: 600 }}>{a.byStatus.IN_PROGRESS || 0}</span></td>
+                  <td className="tnum">{a.byStatus.WAITING_FOR_CUSTOMER || 0}</td>
+                  <td className="tnum">{a.byStatus.RESOLVED || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function OvertimeSection({ overtime }: { overtime: Ticket[] | null }) {
+  const loading = overtime === null;
+  const breach = overtime?.filter((t) => t.sla?.level === "BREACH") ?? [];
+  const risk = overtime?.filter((t) => t.sla?.level === "RISK") ?? [];
+  const warn = overtime?.filter((t) => t.sla?.level === "WARNING") ?? [];
+  return (
+    <div className="col gap-4">
+      {overtime && overtime.length > 0 && (
+        <ErrorBanner msg={`${overtime.length} talep süre aşımında veya risk altında.`} />
+      )}
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+        <KPI label="Süre Aşımı" value={breach.length} tone="red" icon="alert" alert={breach.length > 0} foot="aktif" />
+        <KPI label="Risk (>85%)" value={risk.length} tone="orange" icon="clock" foot="müdahale gerekli" />
+        <KPI label="Uyarı (>70%)" value={warn.length} tone="amber" icon="info" foot="izlemede" />
+      </div>
+      <Card title="Süre Aşımındaki Talepler" pad={false}>
+        {loading ? <SkRows n={4} /> : !overtime?.length ? (
+          <p className="faint" style={{ padding: 16, fontSize: "var(--fs-sm)" }}>Şu anda risk altındaki talep yok.</p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>ID</th><th>Başlık</th><th>Uzman</th><th>Öncelik</th><th style={{ width: 170 }}>SLA</th><th>Durum</th></tr>
+            </thead>
+            <tbody>
+              {overtime.map((t) => (
+                <tr key={t.id}>
+                  <td className="col-id">#{t.id.slice(0, 8)}</td>
+                  <td className="ttl" style={{ maxWidth: 360 }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                  </td>
+                  <td>{t.assigneeId ? <Assignee id={t.assigneeId} name={formatActor(t.assigneeId)} /> : <span className="faint">—</span>}</td>
+                  <td><PriorityPill priority={t.priority} /></td>
+                  <td>{t.sla && <SLABar sla={t.sla} />}</td>
+                  <td><StatusBadge status={t.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </div>
+  );
+}

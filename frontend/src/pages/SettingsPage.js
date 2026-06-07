@@ -1,54 +1,29 @@
-import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { useMemo, useState } from "react";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
+import { useTheme } from "../theme/ThemeProvider";
+import { Card } from "../components/itsm/Common";
+import { Icon } from "../components/itsm/Icon";
+import { Avatar } from "../components/itsm/Primitives";
 import { parseJwtPayload } from "../lib/jwt";
-import { useRole } from "../auth/useRole";
-import { Avatar } from "../components/ui/Avatar";
-import { Button } from "../components/ui/Button";
-import { IconBell, IconGlobe, IconLogOut, IconSun, IconUser } from "../components/ui/Icon";
-import { LanguageSwitcher } from "../components/LanguageSwitcher";
-import { ThemeToggle } from "../components/ui/ThemeToggle";
+function Row({ k, sub, right }) {
+    return (_jsxs("div", { className: "row", style: { padding: "14px 18px", borderBottom: "1px solid var(--border-faint)", alignItems: "flex-start" }, children: [_jsxs("div", { className: "col", style: { flex: 1, gap: 2 }, children: [_jsx("span", { style: { fontWeight: 550, fontSize: "var(--fs-body)" }, children: k }), sub && _jsx("span", { className: "faint", style: { fontSize: "var(--fs-cap)" }, children: sub })] }), _jsx("div", { className: "row", style: { gap: 10 }, children: right })] }));
+}
 export const SettingsPage = () => {
-    const { t } = useTranslation();
-    const { token, logout } = useAuth();
-    const { isManager, isAgent } = useRole();
-    const [section, setSection] = useState("profile");
-    const profile = useMemo(() => parseProfile(token), [token]);
-    const roleLabel = isManager() ? t("role.manager") : isAgent() ? t("role.agent") : t("role.customer");
-    const sections = [
-        { id: "profile", label: t("settings.profile"), icon: _jsx(IconUser, {}) },
-        { id: "preferences", label: t("settings.preferences"), icon: _jsx(IconSun, {}) },
-        { id: "notifications", label: t("settings.notifications"), icon: _jsx(IconBell, {}) }
-    ];
-    return (_jsxs("div", { className: "page-container", children: [_jsx("div", { className: "page-header", children: _jsxs("div", { children: [_jsx("h1", { className: "page-title", children: t("nav.settings") }), _jsx("p", { className: "page-subtitle", children: t("settings.subtitle") })] }) }), _jsxs("div", { className: "settings-shell", children: [_jsx("nav", { className: "settings-nav", "aria-label": t("settings.nav.aria"), children: sections.map((s) => (_jsxs("button", { type: "button", className: "nav-item", "aria-current": section === s.id ? "page" : undefined, onClick: () => setSection(s.id), children: [s.icon, _jsx("span", { children: s.label })] }, s.id))) }), _jsxs("div", { children: [section === "profile" && (_jsx(ProfileSection, { profile: profile, roleLabel: roleLabel, onLogout: logout })), section === "preferences" && _jsx(PreferencesSection, {}), section === "notifications" && _jsx(NotificationsSection, {})] })] })] }));
+    const { i18n } = useTranslation();
+    const { token, roles, logout } = useAuth();
+    const { theme, setTheme } = useTheme();
+    const payload = token ? safeParse(token) : null;
+    const name = payload?.name ?? payload?.preferred_username ?? "Kullanıcı";
+    const email = payload?.email ?? "—";
+    const roleLabel = roles.includes("MANAGER") ? "Yönetici" : roles.includes("AGENT") ? "Uzman" : "Müşteri";
+    return (_jsxs("div", { className: "content-narrow col", style: { gap: 16, maxWidth: 820 }, children: [_jsxs(Card, { title: "G\u00F6r\u00FCn\u00FCm", pad: false, children: [_jsx(Row, { k: "Dil", sub: "Aray\u00FCz dili", right: (_jsx("div", { className: "seg", children: ["tr", "en"].map((l) => (_jsx("button", { className: i18n.language.startsWith(l) ? "on" : "", onClick: () => void i18n.changeLanguage(l), children: l.toUpperCase() }, l))) })) }), _jsx(Row, { k: "Tema", sub: "A\u00E7\u0131k veya koyu tema", right: (_jsx("div", { className: "seg", children: [["light", "Açık", "sun"], ["dark", "Koyu", "moon"], ["system", "Sistem", "settings"]].map(([id, lbl, ic]) => (_jsxs("button", { className: theme === id ? "on" : "", onClick: () => setTheme(id), children: [_jsx(Icon, { name: ic, size: 11, style: { marginRight: 5 } }), lbl] }, id))) })) })] }), _jsx(Card, { title: "Profil", head: _jsx("span", { className: "badge tone-gray", children: "Keycloak \u00B7 salt okunur" }), children: _jsxs("div", { className: "row", style: { gap: 16, padding: "6px 0" }, children: [_jsx(Avatar, { name: name, size: "lg" }), _jsxs("div", { className: "col", style: { flex: 1 }, children: [_jsxs("div", { className: "row", style: { gap: 8 }, children: [_jsx("b", { style: { fontSize: "var(--fs-card)" }, children: name }), _jsx("span", { className: "badge tone-purple", children: roleLabel })] }), _jsx("span", { className: "faint", style: { fontSize: "var(--fs-sm)" }, children: email })] })] }) }), _jsxs(Card, { title: "G\u00FCvenlik", pad: false, children: [_jsx(Row, { k: "\u0130ki Fakt\u00F6rl\u00FC Do\u011Frulama (TOTP)", sub: "Authenticator uygulamas\u0131 zorunlu", right: (_jsxs("span", { className: "badge tone-green", children: [_jsx(Icon, { name: "shield", size: 11, className: "ic", strokeWidth: 2.2 }), "Aktif"] })) }), _jsx(Row, { k: "Oturum", sub: "Hesab\u0131n\u0131zdan \u00E7\u0131k\u0131\u015F yap\u0131n", right: (_jsxs("button", { className: "btn btn-danger", onClick: logout, children: [_jsx(Icon, { name: "logout", size: 13 }), "\u00C7\u0131k\u0131\u015F Yap"] })) })] })] }));
 };
-const ProfileSection = ({ profile, roleLabel, onLogout }) => {
-    const { t } = useTranslation();
-    return (_jsxs(_Fragment, { children: [_jsxs(SettingsCard, { title: t("settings.profile"), description: t("settings.profile.desc"), children: [_jsxs("div", { style: { display: "flex", alignItems: "center", gap: "var(--space-4)" }, children: [_jsx(Avatar, { name: profile.name || profile.username, size: "xl" }), _jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 2 }, children: [_jsx("div", { style: { fontSize: "var(--text-md)", fontWeight: "var(--weight-semibold)" }, children: profile.name || profile.username }), _jsx("div", { className: "text-sm text-muted", children: profile.email }), _jsx("div", { className: "text-xs text-muted", style: { marginTop: 4 }, children: _jsx("span", { className: "badge badge--sm", children: roleLabel }) })] })] }), _jsx(ReadOnlyField, { label: t("settings.profile.username"), value: profile.username }), _jsx(ReadOnlyField, { label: t("settings.profile.email"), value: profile.email || "—" }), _jsx(ReadOnlyField, { label: t("settings.profile.fullname"), value: profile.name || "—" }), _jsx("p", { className: "text-xs text-muted", children: t("settings.profile.managed_by_keycloak") })] }), _jsx(SettingsCard, { title: t("settings.session"), description: t("settings.session.desc"), children: _jsxs("div", { className: "settings-row", children: [_jsxs("div", { className: "settings-row-label", children: [_jsx("div", { className: "settings-row-title", children: t("auth.logout") }), _jsx("div", { className: "settings-row-description", children: t("settings.session.logout_desc") })] }), _jsx(Button, { variant: "danger", leadingIcon: _jsx(IconLogOut, {}), onClick: onLogout, children: t("auth.logout") })] }) })] }));
-};
-const PreferencesSection = () => {
-    const { t } = useTranslation();
-    return (_jsxs(SettingsCard, { title: t("settings.preferences"), description: t("settings.preferences.desc"), children: [_jsxs("div", { className: "settings-row", children: [_jsxs("div", { className: "settings-row-label", children: [_jsx("div", { className: "settings-row-title", children: t("theme.title") }), _jsx("div", { className: "settings-row-description", children: t("settings.theme.desc") })] }), _jsx(ThemeToggle, {})] }), _jsxs("div", { className: "settings-row", children: [_jsxs("div", { className: "settings-row-label", children: [_jsx("div", { className: "settings-row-title", children: _jsxs("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [_jsx(IconGlobe, {}), " ", t("settings.language")] }) }), _jsx("div", { className: "settings-row-description", children: t("settings.language.desc") })] }), _jsx(LanguageSwitcher, {})] })] }));
-};
-const NotificationsSection = () => {
-    const { t } = useTranslation();
-    return (_jsx(SettingsCard, { title: t("settings.notifications"), description: t("settings.notifications.desc"), children: _jsx("p", { className: "text-sm text-muted", children: t("settings.notifications.coming_soon") }) }));
-};
-const SettingsCard = ({ title, description, children }) => (_jsxs("section", { className: "settings-section", children: [_jsxs("header", { className: "settings-section-header", children: [_jsx("div", { className: "settings-section-title", children: title }), description && _jsx("div", { className: "settings-section-description", children: description })] }), _jsx("div", { className: "settings-section-body", children: children })] }));
-const ReadOnlyField = ({ label, value }) => (_jsxs("div", { className: "settings-row", children: [_jsx("div", { className: "settings-row-label", children: _jsx("div", { className: "settings-row-title", children: label }) }), _jsx("div", { className: "text-sm", style: { color: "var(--text-secondary)", fontFamily: label.toLowerCase().includes("id") ? "var(--font-mono)" : undefined }, children: value })] }));
-function parseProfile(token) {
-    if (!token)
-        return { name: "", email: "", username: "User" };
+function safeParse(token) {
     try {
-        const payload = parseJwtPayload(token);
-        return {
-            name: payload.name ?? `${payload.given_name ?? ""} ${payload.family_name ?? ""}`.trim(),
-            email: payload.email ?? "",
-            username: payload.preferred_username ?? payload.email ?? "User"
-        };
+        return parseJwtPayload(token);
     }
     catch {
-        return { name: "", email: "", username: "User" };
+        return null;
     }
 }

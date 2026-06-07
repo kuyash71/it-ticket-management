@@ -1,42 +1,143 @@
-# IT Ticket Management
+# IT Ticket Management System
 
-Bu proje, kurumsal IT ticket yönetimi için aşağıdaki teknoloji seti ile sıfırdan kurulmuştur:
+Kurumsal IT servis talebi ve arıza yönetimi için tam yığın uygulama.
 
-- Backend: Spring Boot 3 (Java 21)
-- AuthN/AuthZ: Keycloak (OIDC/JWT)
-- Frontend: React + Vite + i18next
-- Database: PostgreSQL
-- Workflow Engine: jBPM
-- Log Transfer: Kafka
-- Log Index/Search: OpenSearch
-- Telemetry: OpenTelemetry (OTLP)
-- Runtime: Docker Compose
+## Teknoloji Yığını
 
-## Monorepo Yapısı
+| Katman | Teknoloji |
+|---|---|
+| Frontend | React 18 + Vite + i18next |
+| Backend | Spring Boot 3.3 (Java 21) |
+| Veritabanı | PostgreSQL 16 + Flyway |
+| ORM | Spring Data JPA / Hibernate |
+| Kimlik & Yetki | Keycloak 26 (JWT + 2FA/TOTP) |
+| İş Akışı | Kogito (jBPM uyumlu BPMN motoru) |
+| Log Aktarımı | Log4j2 → Kafka → OpenSearch |
+| Gözlemlenebilirlik | OpenTelemetry + Prometheus + Grafana |
+| Cache | Caffeine (in-memory, 30 s TTL) |
+| Çalışma Ortamı | Docker Compose |
 
-```text
-backend/                  # Spring Boot API
-frontend/                 # React uygulaması
-infra/                    # Docker Compose + Keycloak realm + OTel config
-docs/                     # Mimari ve proje dokümantasyonu
-```
+---
+
+## Gereksinimler
+
+- **Docker** 24+ ve **Docker Compose** v2  
+- Local geliştirme için: **Java 21**, **Maven 3.9+**, **Node.js 20+**
+
+---
 
 ## Hızlı Başlangıç (Docker Compose)
 
 ```bash
+# Repoyu klonlayın
+git clone <repo-url>
+cd "IT Ticket Management"
+
+# Tüm servisleri ayağa kaldırın (ilk çalıştırmada image'lar indirilir)
 docker compose up --build
 ```
 
-Servisler:
+Tüm servisler ayağa kalktıktan sonra (yaklaşık 1-2 dk):
 
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- Keycloak: `http://localhost:8081`
-- PostgreSQL: `localhost:5433`
-- Kafka: `localhost:9092`
-- OpenSearch: `http://localhost:9200`
-- OpenTelemetry Collector: `localhost:4317`, `localhost:4318`
+| Servis | URL |
+|---|---|
+| **Frontend** | http://localhost:5173 |
+| **Backend API** | http://localhost:8080 |
+| **Swagger UI** | http://localhost:8080/swagger-ui.html |
+| **Keycloak** | http://localhost:8081 |
+| **Grafana** | http://localhost:3000 |
+| **Prometheus** | http://localhost:9090 |
+| **OpenSearch** | http://localhost:9200 |
+| **PostgreSQL** | localhost:5433 |
+| **Kafka** | localhost:9092 |
+
+---
+
+## Varsayılan Kullanıcılar
+
+### Keycloak Admin Konsolu (`http://localhost:8081`)
+| Alan | Değer |
+|---|---|
+| Kullanıcı adı | `admin` |
+| Şifre | `admin` |
+
+### Uygulama Test Kullanıcıları (realm: `itsm`)
+
+İlk girişte **TOTP (2FA) kurulumu** yapmanız istenecektir. Google Authenticator veya benzeri bir uygulama kullanın.
+
+| Kullanıcı adı | Şifre | Rol |
+|---|---|---|
+| `manager1` | `Test1234!` | Manager |
+| `agent1` | `Test1234!` | Agent |
+| `customer1` | `Test1234!` | Customer |
+
+> Yeni kullanıcı eklemek için: Keycloak Admin → realm `itsm` → Users → Add user → Credentials.
+
+---
+
+## API
+
+Tüm endpointler `/api/v1/` öneki ile başlar. Kimlik doğrulama Bearer JWT gerektirir.
+
+### Temel Endpointler
+
+```
+GET    /api/v1/tickets              # Çağıranın görebileceği ticket listesi
+POST   /api/v1/tickets              # Yeni ticket oluştur
+GET    /api/v1/tickets/{id}         # Ticket detayı
+PATCH  /api/v1/tickets/{id}/status  # Durum değiştir
+POST   /api/v1/tickets/{id}/resolve # Çözüme al (not zorunlu)
+GET    /api/v1/reports/summary      # Özet rapor (agent/manager)
+GET    /api/v1/users/agents         # Agent listesi (agent/manager)
+```
+
+Tüm endpointler ve istek/yanıt şemaları için: **http://localhost:8080/swagger-ui.html**
+
+### Sağlık ve Metrik (auth gerektirmez)
+
+```
+GET /actuator/health
+GET /actuator/prometheus
+```
+
+---
+
+## Proje Yapısı
+
+```
+.
+├── backend/                        # Spring Boot API
+│   ├── src/main/java/com/itsm/
+│   │   ├── config/                 # Security, Cache, CORS, OpenTelemetry
+│   │   ├── ticket/
+│   │   │   ├── api/                # REST controllers + request/response DTO
+│   │   │   ├── domain/             # JPA entity, enums, policy
+│   │   │   ├── service/            # İş mantığı
+│   │   │   └── exception/          # GlobalExceptionHandler
+│   │   ├── reporting/              # Raporlama katmanı
+│   │   ├── users/                  # Kullanıcı dizini
+│   │   └── logging/                # Kafka log producer + OpenSearch indexer
+│   └── src/main/resources/
+│       ├── application.yml
+│       ├── log4j2-spring.xml       # Log4j2 → Kafka appender
+│       └── db/migration/           # Flyway migration dosyaları
+│
+├── frontend/                       # React + Vite
+│   └── src/
+│       ├── pages/                  # TicketsPage, TicketDetailPage, DashboardPage, ReportsPage
+│       ├── components/             # Paylaşılan UI bileşenleri
+│       ├── api/                    # Axios HTTP client
+│       └── locales/                # tr / en çeviri dosyaları
+│
+├── infra/
+│   ├── keycloak/realm-itsm.json    # Keycloak realm export (kullanıcılar, roller, 2FA config)
+│   ├── otel-collector-config.yml   # OpenTelemetry Collector yapılandırması
+│   └── prometheus/prometheus.yml   # Prometheus scrape config
+│
+└── docker-compose.yml
+```
+
+---
 
 ## Local Geliştirme
 
@@ -47,6 +148,11 @@ cd backend
 mvn spring-boot:run
 ```
 
+> Önce altyapı servislerinin (PostgreSQL, Kafka, Keycloak, OpenSearch) çalışıyor olması gerekir:
+> ```bash
+> docker compose up postgres kafka keycloak opensearch -d
+> ```
+
 ### Frontend
 
 ```bash
@@ -55,28 +161,34 @@ npm install
 npm run dev
 ```
 
-## i18n
+Frontend `http://localhost:5173` adresinde çalışır, API isteklerini `http://localhost:8080`'e yönlendirir.
 
-Frontend çoklu dil desteği i18next ile uygulanmıştır.
+---
 
-- Türkçe: `frontend/src/locales/tr/common.json`
-- İngilizce: `frontend/src/locales/en/common.json`
+## Test
 
-## API Kısa Özeti
+```bash
+cd backend
+mvn test
+```
 
-- `GET /api/tickets`
-- `POST /api/tickets`
-- `GET /actuator/health`
+---
 
-Detaylar için: `docs/api-overview.md`
+## Log Akışı
 
-## Workflow, Logging ve Observability
+```
+Uygulama (Log4j2)
+    └──► Kafka topic: itsm.logs
+              └──► OpenSearch index: itsm-logs-*
+```
 
-- Ticket oluşturma sonrası jBPM process başlatılır.
-- Domain log olayları Kafka topic'ine aktarılır (`itsm.logs`).
-- Aynı olaylar OpenSearch index'ine yazılır (`itsm-logs`).
-- Uygulama trace verisi OTLP ile OpenTelemetry Collector'a gönderilir.
+Logları sorgulamak için: `http://localhost:9200/itsm-logs-*/_search`
 
-## Lisans
+---
 
-Lisans metni: `LICENSE`
+## Gözlemlenebilirlik
+
+- **Prometheus** metrikleri `http://localhost:9090` adresinde
+- **Grafana** dashboardları `http://localhost:3000` (varsayılan: admin/admin)
+  - JVM dashboard ID: `4701`
+- **Trace verileri** OpenTelemetry Collector üzerinden toplanır (`localhost:4317` OTLP/gRPC)

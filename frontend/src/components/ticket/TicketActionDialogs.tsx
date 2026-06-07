@@ -314,7 +314,7 @@ type ReassignDialogProps = {
 
 /**
  * Doc §9 — Manager reassigns the ticket to another agent. Reason zorunlu, audit'e gider.
- * Agent listesi /api/users/agents'tan gelir (auto-populated when agents log in).
+ * Agent listesi /api/v1/users/agents'tan gelir (auto-populated when agents log in).
  */
 export const ReassignDialog = ({
   open,
@@ -334,7 +334,7 @@ export const ReassignDialog = ({
     let cancelled = false;
     setLoadingAgents(true);
     http
-      .get<AgentSummary[]>("/api/users/agents")
+      .get<AgentSummary[]>("/api/v1/users/agents")
       .then((res) => {
         if (cancelled) return;
         setAgents(res.data);

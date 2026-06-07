@@ -6,6 +6,8 @@ const resolveSystem = () => window.matchMedia("(prefers-color-scheme: dark)").ma
 const applyTheme = (theme) => {
     const resolved = theme === "system" ? resolveSystem() : theme;
     document.documentElement.setAttribute("data-theme", resolved);
+    document.body.setAttribute("data-theme", resolved);
+    document.body.classList.add("itsm");
 };
 export const ThemeProvider = ({ children }) => {
     const [theme, setThemeState] = useState(() => {

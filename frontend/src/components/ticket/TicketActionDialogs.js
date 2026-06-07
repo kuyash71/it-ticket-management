@@ -84,7 +84,7 @@ export const OverrideStatusDialog = ({ open, submitting, currentStatus, onClose,
 };
 /**
  * Doc §9 — Manager reassigns the ticket to another agent. Reason zorunlu, audit'e gider.
- * Agent listesi /api/users/agents'tan gelir (auto-populated when agents log in).
+ * Agent listesi /api/v1/users/agents'tan gelir (auto-populated when agents log in).
  */
 export const ReassignDialog = ({ open, submitting, currentAssignee, onClose, onSubmit, }) => {
     const { t } = useTranslation();
@@ -98,7 +98,7 @@ export const ReassignDialog = ({ open, submitting, currentAssignee, onClose, onS
         let cancelled = false;
         setLoadingAgents(true);
         http
-            .get("/api/users/agents")
+            .get("/api/v1/users/agents")
             .then((res) => {
             if (cancelled)
                 return;

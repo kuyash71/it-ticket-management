@@ -5,7 +5,7 @@
   "defaultSignatureAlgorithm": "RS256",
   "revokeRefreshToken": false,
   "refreshTokenMaxReuse": 0,
-  "accessTokenLifespan": 300,
+  "accessTokenLifespan": 900,
   "accessTokenLifespanForImplicitFlow": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
@@ -502,6 +502,44 @@
       }
     ]
   },
+  "users": [
+    {
+      "username": "manager1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Manager",
+      "lastName": "One",
+      "email": "manager1@itsm.local",
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["manager", "default-roles-itsm"]
+    },
+    {
+      "username": "agent1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Agent",
+      "lastName": "One",
+      "email": "agent1@itsm.local",
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["agent", "default-roles-itsm"]
+    },
+    {
+      "username": "customer1",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Customer",
+      "lastName": "One",
+      "email": "customer1@itsm.local",
+      "credentials": [
+        { "type": "password", "value": "Test1234!", "temporary": false }
+      ],
+      "realmRoles": ["customer", "default-roles-itsm"]
+    }
+  ],
   "clients": [
     {
       "id": "98742fa7-a378-49c2-a7c2-ad25e0c3abca",

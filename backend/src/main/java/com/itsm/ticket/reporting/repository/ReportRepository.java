@@ -28,4 +28,21 @@ public interface ReportRepository extends Repository<Ticket, UUID> {
 
     @Query("SELECT AVG(sc.elapsed) FROM Ticket t JOIN t.slaClock sc WHERE sc.state = :state")
     Optional<Double> avgElapsedSeconds(SLAClockState state);
+
+    // ── Feedback metrikleri (Doc §4.4.6) ──────────────────────────
+
+    @Query("SELECT COUNT(f) FROM TicketFeedback f")
+    long countFeedback();
+
+    @Query("SELECT AVG(f.rating) FROM TicketFeedback f")
+    Optional<Double> avgFeedbackRating();
+
+    /** [rating, count] satırları — rating dağılımı için. */
+    @Query("SELECT f.rating, COUNT(f) FROM TicketFeedback f GROUP BY f.rating ORDER BY f.rating")
+    List<Object[]> ratingDistribution();
+
+    /** [agentId, count, avgRating] — agent bazında özet (agentId null olabilir). */
+    @Query("SELECT f.agentId, COUNT(f), AVG(f.rating) FROM TicketFeedback f " +
+           "WHERE f.agentId IS NOT NULL GROUP BY f.agentId ORDER BY AVG(f.rating) DESC")
+    List<Object[]> agentBreakdown();
 }

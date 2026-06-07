@@ -24,6 +24,22 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [roles, setRoles] = useState<UserRole[]>([]);
 
   useEffect(() => {
+    // Dev bypass: VITE_AUTH_BYPASS=true ise Keycloak init atla, fake user ile başla.
+    // Backend de dev profile'da DevAuthFilter ile aynı şekilde fake auth kullanır.
+    if (import.meta.env.VITE_AUTH_BYPASS === "true") {
+      const fakeRoles = (import.meta.env.VITE_AUTH_FAKE_ROLES ?? "MANAGER")
+        .split(",")
+        .map((r: string) => r.trim().toUpperCase())
+        .filter((r: string): r is UserRole => ["CUSTOMER", "AGENT", "MANAGER"].includes(r));
+      setAuthenticated(true);
+      setToken("dev-bypass-token");
+      setRoles(fakeRoles);
+      setInitialized(true);
+      // eslint-disable-next-line no-console
+      console.warn("⚠ DEV AUTH BYPASS ACTIVE — DO NOT USE IN PRODUCTION", { roles: fakeRoles });
+      return;
+    }
+
     const boot = async () => {
       const result = await keycloak.init({
         onLoad: "login-required",
@@ -38,6 +54,14 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
       keycloak.onAuthRefreshSuccess = () => {
         setToken(keycloak.token);
         setBearerToken(keycloak.token);
+      };
+
+      // Proactive refresh — token süresi dolduğunda 401'i beklemeden tazele.
+      // Aksi takdirde her isteğin 401 alıp interceptor üzerinden retry etmesi gerekirdi.
+      keycloak.onTokenExpired = () => {
+        keycloak.updateToken(30).catch(() => {
+          void keycloak.login();
+        });
       };
 
       const realmRoles = (keycloak.realmAccess?.roles ?? []) as string[];
@@ -64,6 +88,12 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         void keycloak.login();
       },
       logout: () => {
+        // Logout çağrısı redirect başlatır; redirect race'inde stale token'la
+        // request gitmesin diye bearer'ı ve local state'i hemen temizle.
+        setBearerToken(undefined);
+        setToken(undefined);
+        setAuthenticated(false);
+        setRoles([]);
         void keycloak.logout();
       }
     }),

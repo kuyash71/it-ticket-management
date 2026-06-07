@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import type { FormEvent, KeyboardEvent } from "react";
 
 import { http } from "../api/http";
 import { useRole } from "../auth/useRole";
-import { SlaPanel } from "../components/ticket/SlaPanel";
 import {
   ApproveDialog,
   ChangePriorityDialog,
@@ -14,30 +12,15 @@ import {
   OverrideStatusDialog,
   ReassignDialog,
   RejectDialog,
-  ResolveDialog,
+  ResolveDialog
 } from "../components/ticket/TicketActionDialogs";
-import { Avatar } from "../components/ui/Avatar";
-import { PriorityBadge, StatusBadge, TypeBadge } from "../components/ui/Badge";
+import { Card, EmptyState, ErrorBanner, WarnBanner } from "../components/itsm/Common";
+import { Icon } from "../components/itsm/Icon";
+import { Assignee, Avatar, PriorityPill, SLABar, StatusBadge, Stars, TypeBadge, VisibilityPill } from "../components/itsm/Primitives";
+import { SLA_LEVEL_META, STATUS_META } from "../components/itsm/meta";
+import { Dialog } from "../components/ui/Dialog";
 import { Button } from "../components/ui/Button";
-import { EmptyState } from "../components/ui/EmptyState";
-import { ErrorBanner } from "../components/ui/ErrorBanner";
-import { Field } from "../components/ui/Field";
-import {
-  IconAlertCircle,
-  IconArrowLeft,
-  IconArrowRight,
-  IconCheckCircle,
-  IconClock,
-  IconDownload,
-  IconMessageSquare,
-  IconPaperclip,
-  IconRefresh,
-  IconSettings,
-  IconUser,
-  IconWrench
-} from "../components/ui/Icon";
-import { Select, Textarea } from "../components/ui/Input";
-import { LoadingState } from "../components/ui/Spinner";
+import { Textarea } from "../components/ui/Input";
 import { useToast } from "../components/ui/Toast";
 import { formatActor, formatDateTime, formatRelative } from "../lib/format";
 import type {
@@ -52,75 +35,119 @@ import type {
   TicketAction,
   TicketStatus,
   TimelineEvent,
-  Visibility,
+  Visibility
 } from "../types/api";
 import { PLAIN_STATUS_TRANSITIONS } from "../types/api";
 
 const COMMENT_MAX = 10000;
 
-const STATUS_KEY: Record<TicketStatus, string> = {
-  NEW: "status.new",
-  IN_PROGRESS: "status.in_progress",
-  WAITING_FOR_CUSTOMER: "status.waiting",
-  RESOLVED: "status.resolved",
-  CLOSED: "status.closed"
-};
+type Props = { ticketId: string; onBack: () => void };
 
-const STATUS_ICON: Record<TicketStatus, ReactNode> = {
-  NEW: <IconAlertCircle size={14} aria-hidden />,
-  IN_PROGRESS: <IconWrench size={14} aria-hidden />,
-  WAITING_FOR_CUSTOMER: <IconClock size={14} aria-hidden />,
-  RESOLVED: <IconCheckCircle size={14} aria-hidden />,
-  CLOSED: <IconCheckCircle size={14} aria-hidden />
-};
+type DialogKind =
+  | "resolve" | "confirmClose" | "confirmResume" | "forceClose"
+  | "priority" | "reassign" | "override" | "approve" | "reject"
+  | "complaint" | "feedback" | null;
 
-type Props = {
+type FeedbackData = {
   ticketId: string;
-  onBack: () => void;
+  customerId: string;
+  agentId: string | null;
+  rating: number;
+  comment: string | null;
+  submittedAt: string;
 };
-
-type DialogKind = "resolve" | "confirmClose" | "confirmResume" | "forceClose" | "priority" | "reassign" | "override" | "approve" | "reject" | null;
 
 export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
-  const { t } = useTranslation();
   const { isCustomer, isAgent, isManager } = useRole();
   const toast = useToast();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState<TicketStatus | null>(null);
   const [dialog, setDialog] = useState<DialogKind>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [tab, setTab] = useState<"timeline" | "attach" | "audit">("timeline");
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [tk, tl, at] = await Promise.all([
-        http.get<Ticket>(`/api/tickets/${ticketId}`),
-        http.get<TimelineEvent[]>(`/api/tickets/${ticketId}/timeline`),
-        http.get<Attachment[]>(`/api/tickets/${ticketId}/attachments`)
+        http.get<Ticket>(`/api/v1/tickets/${ticketId}`),
+        http.get<TimelineEvent[]>(`/api/v1/tickets/${ticketId}/timeline`),
+        http.get<Attachment[]>(`/api/v1/tickets/${ticketId}/attachments`)
       ]);
       setTicket(tk.data);
       setTimeline(tl.data);
       setAttachments(at.data);
+      if (tk.data.status === "CLOSED") {
+        try {
+          const fb = await http.get<FeedbackData>(`/api/v1/tickets/${ticketId}/feedback`);
+          setFeedback(fb.status === 204 ? null : fb.data);
+        } catch { setFeedback(null); }
+      } else { setFeedback(null); }
     } catch {
-      setError(t("error.fetch_failed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [ticketId, t]);
+      setError("Talep yüklenemedi.");
+    } finally { setLoading(false); }
+  }, [ticketId]);
+
+  const refreshTimeline = useCallback(async () => {
+    try {
+      const res = await http.get<TimelineEvent[]>(`/api/v1/tickets/${ticketId}/timeline`);
+      setTimeline(res.data);
+    } catch { /* ignore */ }
+  }, [ticketId]);
 
   const refreshAttachments = useCallback(async () => {
     try {
-      const res = await http.get<Attachment[]>(`/api/tickets/${ticketId}/attachments`);
+      const res = await http.get<Attachment[]>(`/api/v1/tickets/${ticketId}/attachments`);
       setAttachments(res.data);
-    } catch { /* non-critical */ }
+    } catch { /* ignore */ }
   }, [ticketId]);
+
+  useEffect(() => { void fetchAll(); }, [fetchAll]);
+
+  const handlePlainTransition = async (target: TicketStatus) => {
+    setTransitioning(target);
+    try {
+      const res = await http.patch<Ticket>(`/api/v1/tickets/${ticketId}/status`, { status: target });
+      setTicket(res.data);
+      await refreshTimeline();
+      toast.success("Durum değiştirildi", STATUS_META[target].label);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Durum değiştirilemedi");
+    } finally { setTransitioning(null); }
+  };
+
+  const handleTakeOwnership = async () => {
+    setActionSubmitting(true);
+    try {
+      const res = await http.post<Ticket>(`/api/v1/tickets/${ticketId}/take-ownership`);
+      setTicket(res.data);
+      await refreshTimeline();
+      toast.success("Talep sahiplenildi");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "İşlem başarısız");
+    } finally { setActionSubmitting(false); }
+  };
+
+  const runAction = async (req: () => Promise<{ data: Ticket }>, onOk: () => void, msg: string) => {
+    setActionSubmitting(true);
+    try {
+      const res = await req();
+      setTicket(res.data);
+      await refreshTimeline();
+      toast.success(msg);
+      onOk();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "İşlem başarısız");
+    } finally { setActionSubmitting(false); }
+  };
 
   const uploadFile = async (file: File, visibility: Visibility) => {
     setUploading(true);
@@ -128,523 +155,285 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("visibility", visibility);
-      await http.post(`/api/tickets/${ticketId}/attachments/upload`, fd, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      await http.post(`/api/v1/tickets/${ticketId}/attachments/upload`, fd, { headers: { "Content-Type": "multipart/form-data" } });
       await refreshAttachments();
       await refreshTimeline();
-      toast.success(t("attachment.uploaded"));
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(axiosErr?.response?.data?.message ?? t("attachment.upload_failed"));
-    } finally {
-      setUploading(false);
-    }
+      toast.success("Ek yüklendi");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Yükleme başarısız");
+    } finally { setUploading(false); }
   };
 
   const downloadAttachment = async (att: Attachment) => {
     try {
-      const res = await http.get<Blob>(
-        `/api/tickets/${ticketId}/attachments/${att.id}/download`,
-        { responseType: "blob" }
-      );
-      const blob = res.data;
-      const url = URL.createObjectURL(blob);
+      const res = await http.get<Blob>(`/api/v1/tickets/${ticketId}/attachments/${att.id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = att.fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.href = url; a.download = att.fileName;
+      document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      toast.error(t("attachment.download_failed"));
-    }
-  };
-
-  useEffect(() => {
-    void fetchAll();
-  }, [fetchAll]);
-
-  const refreshTimeline = useCallback(async () => {
-    try {
-      const res = await http.get<TimelineEvent[]>(`/api/tickets/${ticketId}/timeline`);
-      setTimeline(res.data);
-    } catch {
-      /* non-critical */
-    }
-  }, [ticketId]);
-
-  const handlePlainTransition = async (target: TicketStatus) => {
-    setTransitioning(target);
-    try {
-      const res = await http.patch<Ticket>(`/api/tickets/${ticketId}/status`, { status: target });
-      setTicket(res.data);
-      await refreshTimeline();
-      toast.success(t("ticket.status.change"), t(STATUS_KEY[target]));
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(axiosErr?.response?.data?.message ?? t("error.transition_failed"));
-    } finally {
-      setTransitioning(null);
-    }
-  };
-
-  const handleTakeOwnership = async () => {
-    setActionSubmitting(true);
-    try {
-      const res = await http.post<Ticket>(`/api/tickets/${ticketId}/take-ownership`);
-      setTicket(res.data);
-      await refreshTimeline();
-      toast.success(t("ticket.take_ownership.success"));
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(axiosErr?.response?.data?.message ?? t("error.action_failed"));
-    } finally {
-      setActionSubmitting(false);
-    }
-  };
-
-  const runVerifiedAction = async <T,>(
-    request: () => Promise<{ data: Ticket }>,
-    onSuccess: () => void,
-    successKey: string,
-    _input?: T,
-  ) => {
-    setActionSubmitting(true);
-    try {
-      const res = await request();
-      setTicket(res.data);
-      await refreshTimeline();
-      toast.success(t(successKey));
-      onSuccess();
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast.error(axiosErr?.response?.data?.message ?? t("error.action_failed"));
-    } finally {
-      setActionSubmitting(false);
-    }
+    } catch { toast.error("İndirme başarısız"); }
   };
 
   if (loading) {
-    return (
-      <div className="page-container">
-        <div className="card"><LoadingState text={t("app.loading")} /></div>
-      </div>
-    );
+    return <div className="col gap-4"><div className="sk" style={{ height: 200, borderRadius: 8 }} /></div>;
   }
-
   if (error || !ticket) {
     return (
-      <div className="page-container">
-        <nav className="breadcrumb" aria-label={t("nav.breadcrumb")}>
-          <button type="button" onClick={onBack}>{t("nav.tickets")}</button>
-        </nav>
-        <ErrorBanner>{error ?? t("error.fetch_failed")}</ErrorBanner>
-        <div style={{ marginTop: "var(--space-3)" }}>
-          <Button variant="ghost" leadingIcon={<IconArrowLeft />} onClick={onBack}>
-            {t("error.back_to_list")}
-          </Button>
-        </div>
+      <div className="col gap-4">
+        <ErrorBanner msg={error ?? "Talep bulunamadı."} onRetry={() => void fetchAll()} />
+        <div><button className="btn" onClick={onBack}><Icon name="chevright" size={13} style={{ transform: "rotate(180deg)" }} />Listeye dön</button></div>
       </div>
     );
   }
 
   const allowedActions = new Set<TicketAction>(ticket.allowedActions);
-  // Plain transitions apply to agents/managers only, and exclude IN_PROGRESS for unapproved service requests.
-  const canRunPlainTransitions = isAgent() || isManager();
-  const plainTransitions = canRunPlainTransitions
+  const canRunPlain = isAgent() || isManager();
+  const plainTransitions = canRunPlain
     ? PLAIN_STATUS_TRANSITIONS[ticket.status].filter((target) => {
-        // Block NEW→IN_PROGRESS and WAITING→IN_PROGRESS for unapproved service requests.
-        if (target === "IN_PROGRESS" && ticket.type === "SERVICE_REQUEST" && ticket.approvalState === "PENDING") {
-          return false;
-        }
+        if (target === "IN_PROGRESS" && ticket.type === "SERVICE_REQUEST" && ticket.approvalState === "PENDING") return false;
         return true;
       })
     : [];
-  const hasAny = (...actions: TicketAction[]) => actions.some((a) => allowedActions.has(a));
-  const canPostInternal = !isCustomer();
+
+  const visibleTimeline = isCustomer() ? timeline.filter((e) => e.visibility !== "INTERNAL") : timeline;
 
   return (
-    <div className="page-container">
-      <nav className="breadcrumb" aria-label={t("nav.breadcrumb")}>
-        <button type="button" onClick={onBack}>{t("nav.tickets")}</button>
-        <span className="breadcrumb-sep" aria-hidden="true">/</span>
-        <span className="breadcrumb-current">#{ticket.id.slice(0, 8)}</span>
-      </nav>
-
-      <div className="detail-grid">
-        <div className="detail-main">
-          <header className="detail-header">
-            <div className="detail-header-meta">
-              <TypeBadge type={ticket.type} />
-              <span>·</span>
-              <span style={{ fontFamily: "var(--font-mono)" }}>#{ticket.id.slice(0, 8)}</span>
-              <span>·</span>
-              <span>{t("ticket.meta.updated")} {formatRelative(ticket.updatedAt)}</span>
-            </div>
-            <h1 className="detail-title">{ticket.title}</h1>
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+    <div className="col gap-4">
+      <div>
+        <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+          <span className="crumb faint" style={{ fontSize: "var(--fs-cap)", cursor: "pointer" }} onClick={onBack}>Talepler /</span>
+          <span className="mono" style={{ fontSize: "var(--fs-cap)", color: "var(--text-tertiary)" }}>#{ticket.id.slice(0, 8)}</span>
+        </div>
+        <div className="row" style={{ gap: 12, alignItems: "flex-start" }}>
+          <div className="col" style={{ flex: 1, gap: 9 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 650, letterSpacing: "-.3px", lineHeight: 1.25 }}>{ticket.title}</h1>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <StatusBadge status={ticket.status} />
-              {!isCustomer() && <PriorityBadge priority={ticket.priority} />}
+              <TypeBadge type={ticket.type} />
+              {!isCustomer() && <PriorityPill priority={ticket.priority} />}
+              <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>· güncellendi {formatRelative(ticket.updatedAt)}</span>
             </div>
-            {ticket.description && (
-              <p className="detail-description">{ticket.description}</p>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {allowedActions.has("TAKE_OWNERSHIP") && (
+              <button className="btn btn-primary" onClick={() => void handleTakeOwnership()} disabled={actionSubmitting}>
+                <Icon name="user" size={13} />Sahiplen
+              </button>
             )}
-            {ticket.resolutionNote && (
-              <div className="resolution-block" style={{
-                marginTop: "var(--space-4)",
-                padding: "var(--space-3) var(--space-4)",
-                border: "1px solid var(--border)",
-                borderLeft: "3px solid var(--color-success, #22c55e)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-subtle)",
-              }}>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-1)", fontWeight: "var(--weight-semibold)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  {t("ticket.resolution_note")}
-                </div>
-                <div style={{ fontSize: "var(--text-sm)", color: "var(--text)", whiteSpace: "pre-wrap" }}>
-                  {ticket.resolutionNote}
-                </div>
-              </div>
+            {allowedActions.has("RESOLVE") && (
+              <button className="btn btn-primary" onClick={() => setDialog("resolve")} disabled={actionSubmitting}>
+                <Icon name="check" size={13} />Çöz
+              </button>
             )}
-            {ticket.closeReason && ticket.status === "CLOSED" && (
-              <div className="close-block" style={{
-                marginTop: "var(--space-3)",
-                padding: "var(--space-3) var(--space-4)",
-                border: "1px solid var(--border)",
-                borderLeft: "3px solid var(--text-muted)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--bg-subtle)",
-              }}>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: "var(--space-1)", fontWeight: "var(--weight-semibold)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-                  {t("ticket.close_reason")}
-                </div>
-                <div style={{ fontSize: "var(--text-sm)", color: "var(--text)", whiteSpace: "pre-wrap" }}>
-                  {ticket.closeReason}
-                </div>
-              </div>
+            {allowedActions.has("CONFIRM_CLOSE") && (
+              <button className="btn btn-primary" onClick={() => setDialog("confirmClose")} disabled={actionSubmitting}>
+                <Icon name="check" size={13} />Onayla & Kapat
+              </button>
             )}
-          </header>
+            {allowedActions.has("REASSIGN") && (
+              <button className="btn" onClick={() => setDialog("reassign")} disabled={actionSubmitting}>
+                <Icon name="users" size={13} />Yeniden Ata
+              </button>
+            )}
+            {allowedActions.has("OVERRIDE_STATUS") && (
+              <button className="btn" onClick={() => setDialog("override")} disabled={actionSubmitting}>
+                <Icon name="shield" size={13} />Müdahale
+              </button>
+            )}
+            {allowedActions.has("FORCE_CLOSE") && (
+              <button className="btn btn-danger" onClick={() => setDialog("forceClose")} disabled={actionSubmitting}>
+                <Icon name="lock" size={13} />Zorla Kapat
+              </button>
+            )}
+            {allowedActions.has("APPROVE_REQUEST") && (
+              <button className="btn btn-primary" onClick={() => setDialog("approve")} disabled={actionSubmitting}>
+                <Icon name="check" size={13} />Onayla
+              </button>
+            )}
+            {allowedActions.has("REJECT_REQUEST") && (
+              <button className="btn btn-danger" onClick={() => setDialog("reject")} disabled={actionSubmitting}>
+                <Icon name="x" size={13} />Reddet
+              </button>
+            )}
+            {allowedActions.has("CHANGE_PRIORITY") && (
+              <button className="btn" onClick={() => setDialog("priority")} disabled={actionSubmitting}>
+                <Icon name="settings" size={13} />Öncelik
+              </button>
+            )}
+            {allowedActions.has("REQUEST_INFO") && isCustomer() && (
+              <button className="btn btn-primary" onClick={() => setDialog("confirmResume")} disabled={transitioning !== null || actionSubmitting}>
+                <Icon name="check" size={13} />Yanıtladım — Devam Et
+              </button>
+            )}
+            {allowedActions.has("REOPEN_REQUEST") && (
+              <button className="btn" onClick={() => void handlePlainTransition("IN_PROGRESS")} disabled={transitioning !== null}>
+                <Icon name="reopen" size={13} />Yeniden Aç
+              </button>
+            )}
+            {plainTransitions.map((target) => (
+              <button key={target} className="btn" onClick={() => void handlePlainTransition(target)} disabled={transitioning !== null}>
+                <Icon name="chevright" size={13} />{STATUS_META[target].label}
+              </button>
+            ))}
+            {isCustomer() && ticket.status !== "CLOSED" && (
+              <button className="btn btn-danger" onClick={() => setDialog("complaint")} disabled={actionSubmitting}>
+                <Icon name="thumbsdown" size={13} />Şikayet
+              </button>
+            )}
+            {isCustomer() && ticket.status === "CLOSED" && !feedback && (
+              <button className="btn btn-primary" onClick={() => setDialog("feedback")} disabled={actionSubmitting}>
+                <Icon name="star" size={13} />Değerlendir
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
-          <section className="timeline" aria-label={t("ticket.timeline")}>
-            <div className="timeline-header">
-              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-                <IconMessageSquare size={16} aria-hidden />
-                <strong style={{ fontSize: "var(--text-sm)" }}>{t("ticket.timeline")}</strong>
-                <span className="text-muted text-xs">({timeline.length})</span>
-              </div>
-              <Button variant="ghost" size="sm" leadingIcon={<IconRefresh />} onClick={() => void refreshTimeline()}>
-                {t("action.refresh")}
-              </Button>
+      <div className="grid" style={{ gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 18, alignItems: "start" }}>
+        <div className="col" style={{ gap: 14 }}>
+          {ticket.description && (
+            <Card title="Açıklama">
+              <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "var(--fs-body)", color: "var(--text-secondary)", lineHeight: 1.55 }}>
+                {ticket.description}
+              </p>
+            </Card>
+          )}
+
+          {ticket.resolutionNote && (
+            <Card title="Çözüm Notu" head={<span className="badge tone-green">{ticket.resolutionCode}</span>}>
+              <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "var(--fs-body)", color: "var(--text-primary)", lineHeight: 1.55 }}>
+                {ticket.resolutionNote}
+              </p>
+            </Card>
+          )}
+
+          {ticket.closeReason && ticket.status === "CLOSED" && (
+            <Card title="Kapama Nedeni">
+              <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: "var(--fs-body)", color: "var(--text-primary)", lineHeight: 1.55 }}>
+                {ticket.closeReason}
+              </p>
+            </Card>
+          )}
+
+          {ticket.sla && (ticket.sla.level === "RISK" || ticket.sla.level === "BREACH") && (isAgent() || isManager()) && (
+            <WarnBanner>
+              <b>SLA {SLA_LEVEL_META[ticket.sla.level].label.toLowerCase()}.</b> Bu talep risk altında, hızlı aksiyon gerekli.
+            </WarnBanner>
+          )}
+
+          <div className="tabs">
+            <div className={"tab " + (tab === "timeline" ? "active" : "")} onClick={() => setTab("timeline")}>
+              Zaman Çizgisi<span className="cnt tnum">{visibleTimeline.length}</span>
             </div>
-            <div className="timeline-body">
-              {timeline.length === 0 ? (
-                <div className="timeline-empty">
-                  <EmptyState
-                    icon={<IconMessageSquare size={20} />}
-                    title={t("ticket.timeline.empty")}
-                  />
-                </div>
+            <div className={"tab " + (tab === "attach" ? "active" : "")} onClick={() => setTab("attach")}>
+              Ekler<span className="cnt tnum">{attachments.length}</span>
+            </div>
+          </div>
+
+          {tab === "timeline" && (
+            <>
+              {visibleTimeline.length === 0 ? (
+                <Card><EmptyState icon="comment" title="Henüz aktivite yok" body="Yorum ekleyerek başlayın." /></Card>
               ) : (
-                timeline.map((event) => <TimelineEntry key={event.id} event={event} />)
+                <div className="timeline">
+                  {visibleTimeline.map((ev) => <TimelineItem key={ev.id} event={ev} />)}
+                </div>
               )}
-            </div>
-          </section>
+              {ticket.status !== "CLOSED" && allowedActions.has("ADD_COMMENT") && (
+                <CommentComposer
+                  ticketId={ticketId}
+                  canPostInternal={!isCustomer()}
+                  onAdded={(ev) => setTimeline((prev) => [...prev, ev])}
+                />
+              )}
+            </>
+          )}
 
-          {ticket.status !== "CLOSED" && allowedActions.has("ADD_COMMENT") && (
-            <CommentComposer
-              ticketId={ticketId}
-              canPostInternal={canPostInternal}
-              onAdded={(event) => setTimeline((prev) => [...prev, event])}
-            />
+          {tab === "attach" && (
+            <Card>
+              <AttachmentsList
+                attachments={attachments}
+                canUpload={allowedActions.has("ADD_ATTACHMENT")}
+                canPostInternal={!isCustomer()}
+                uploading={uploading}
+                onUpload={uploadFile}
+                onDownload={downloadAttachment}
+              />
+            </Card>
           )}
         </div>
 
-        <aside className="detail-side">
-          {ticket.sla && <SlaPanel sla={ticket.sla} />}
-
-          {(plainTransitions.length > 0 ||
-            hasAny("TAKE_OWNERSHIP", "RESOLVE", "CONFIRM_CLOSE", "FORCE_CLOSE", "CHANGE_PRIORITY", "REASSIGN", "OVERRIDE_STATUS", "APPROVE_REQUEST", "REJECT_REQUEST", "REQUEST_INFO", "REOPEN_REQUEST")) && (
-            <div className="side-section">
-              <div className="side-section-header">{t("ticket.actions")}</div>
-              <div className="side-section-body">
-                <div className="status-actions">
-                  {allowedActions.has("TAKE_OWNERSHIP") && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leadingIcon={<IconUser size={14} aria-hidden />}
-                      onClick={() => void handleTakeOwnership()}
-                      loading={actionSubmitting}
-                      disabled={transitioning !== null}
-                    >
-                      {t("ticket.take_ownership.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("REQUEST_INFO") && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leadingIcon={<IconArrowRight size={14} aria-hidden />}
-                      onClick={() => setDialog("confirmResume")}
-                      disabled={transitioning !== null || actionSubmitting}
-                    >
-                      {t("ticket.request_info.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("REOPEN_REQUEST") && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      leadingIcon={<IconRefresh size={14} aria-hidden />}
-                      onClick={() => void handlePlainTransition("IN_PROGRESS")}
-                      loading={transitioning === "IN_PROGRESS"}
-                      disabled={transitioning !== null || actionSubmitting}
-                    >
-                      {t("ticket.reopen.action")}
-                    </Button>
-                  )}
-
-                  {plainTransitions.map((target) => (
-                    <Button
-                      key={target}
-                      variant="default"
-                      size="sm"
-                      leadingIcon={STATUS_ICON[target]}
-                      trailingIcon={<IconArrowRight />}
-                      onClick={() => void handlePlainTransition(target)}
-                      loading={transitioning === target}
-                      disabled={transitioning !== null}
-                    >
-                      {t(STATUS_KEY[target])}
-                    </Button>
-                  ))}
-
-                  {allowedActions.has("RESOLVE") && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leadingIcon={<IconCheckCircle size={14} aria-hidden />}
-                      onClick={() => setDialog("resolve")}
-                      disabled={actionSubmitting || transitioning !== null}
-                    >
-                      {t("ticket.resolve.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("CONFIRM_CLOSE") && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leadingIcon={<IconCheckCircle size={14} aria-hidden />}
-                      onClick={() => setDialog("confirmClose")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("ticket.confirm_close.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("REASSIGN") && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      leadingIcon={<IconUser size={14} aria-hidden />}
-                      onClick={() => setDialog("reassign")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("ticket.reassign.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("OVERRIDE_STATUS") && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      leadingIcon={<IconAlertCircle size={14} aria-hidden />}
-                      onClick={() => setDialog("override")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("ticket.override.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("FORCE_CLOSE") && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      leadingIcon={<IconAlertCircle size={14} aria-hidden />}
-                      onClick={() => setDialog("forceClose")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("ticket.force_close.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("APPROVE_REQUEST") && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leadingIcon={<IconCheckCircle size={14} aria-hidden />}
-                      onClick={() => setDialog("approve")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("approval.approve.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("REJECT_REQUEST") && (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      leadingIcon={<IconAlertCircle size={14} aria-hidden />}
-                      onClick={() => setDialog("reject")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("approval.reject.action")}
-                    </Button>
-                  )}
-
-                  {allowedActions.has("CHANGE_PRIORITY") && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      leadingIcon={<IconSettings size={14} aria-hidden />}
-                      onClick={() => setDialog("priority")}
-                      disabled={actionSubmitting}
-                    >
-                      {t("ticket.priority.action")}
-                    </Button>
-                  )}
-                </div>
+        <div className="card card-pad col" style={{ position: "sticky", top: 0 }}>
+          {ticket.sla && (
+            <div className="col gap-2" style={{ paddingBottom: 12, borderBottom: "1px solid var(--border-faint)" }}>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="eyebrow">SLA</span>
+                <span className={"badge " + (ticket.sla.level === "BREACH" ? "tone-red" : ticket.sla.level === "RISK" ? "tone-orange" : ticket.sla.level === "WARNING" ? "tone-amber" : "tone-green")}>
+                  {SLA_LEVEL_META[ticket.sla.level].label}
+                </span>
+              </div>
+              <SLABar sla={ticket.sla} />
+              <div className="row" style={{ justifyContent: "space-between", fontSize: "var(--fs-cap)", color: "var(--text-secondary)" }}>
+                <span>Hedef</span>
+                <span className="tnum">{(ticket.sla.deadlineSeconds / 3600).toFixed(1)} sa</span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between", fontSize: "var(--fs-cap)", color: "var(--text-secondary)" }}>
+                <span>Saat durumu</span>
+                <span className="tnum">{ticket.sla.clockState === "RUNNING" ? "Çalışıyor" : ticket.sla.clockState === "PAUSED" ? "Duraklatıldı" : "Durduruldu"}</span>
               </div>
             </div>
           )}
 
-          <AttachmentsPanel
-            attachments={attachments}
-            allowedActions={allowedActions}
-            uploading={uploading}
-            onUpload={uploadFile}
-            onDownload={downloadAttachment}
-          />
+          <div className="meta-row"><span className="k">Atanan</span><span className="v">{ticket.assigneeId ? <Assignee id={ticket.assigneeId} name={formatActor(ticket.assigneeId)} /> : <span className="faint">Atanmadı</span>}</span></div>
+          <div className="meta-row"><span className="k">Tür</span><span className="v"><TypeBadge type={ticket.type} /></span></div>
+          {!isCustomer() && <div className="meta-row"><span className="k">Öncelik</span><span className="v"><PriorityPill priority={ticket.priority} /></span></div>}
+          {!isCustomer() && <div className="meta-row"><span className="k">Etki</span><span className="v">{ticket.impact}</span></div>}
+          {!isCustomer() && <div className="meta-row"><span className="k">Aciliyet</span><span className="v">{ticket.urgency}</span></div>}
+          {ticket.approvalState && <div className="meta-row"><span className="k">Onay</span><span className="v">{ticket.approvalState}</span></div>}
+          <div className="meta-row"><span className="k">Oluşturuldu</span><span className="v">{formatDateTime(ticket.createdAt)}</span></div>
+          <div className="meta-row"><span className="k">Güncellendi</span><span className="v">{formatDateTime(ticket.updatedAt)}</span></div>
+          {ticket.resolvedAt && <div className="meta-row"><span className="k">Çözüldü</span><span className="v">{formatDateTime(ticket.resolvedAt)}</span></div>}
+          {ticket.closedAt && <div className="meta-row"><span className="k">Kapandı</span><span className="v">{formatDateTime(ticket.closedAt)}</span></div>}
 
-          <div className="side-section">
-            <div className="side-section-header">{t("ticket.details")}</div>
-            <div className="side-section-body">
-              <dl style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                <SideRow label={t("ticket.col.status")}>
-                  <StatusBadge status={ticket.status} />
-                </SideRow>
-                <SideRow label={t("ticket.col.type")}>
-                  <TypeBadge type={ticket.type} />
-                </SideRow>
-                <SideRow label={t("ticket.col.assignee")}>
-                  {ticket.assigneeId ? (
-                    <span className="text-sm" style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
-                      <Avatar name={formatActor(ticket.assigneeId)} size="sm" />
-                      {formatActor(ticket.assigneeId)}
-                    </span>
-                  ) : (
-                    <span className="text-muted text-sm">{t("ticket.assignee.unassigned")}</span>
-                  )}
-                </SideRow>
-                {!isCustomer() && (
-                  <>
-                    <SideRow label={t("ticket.col.priority")}>
-                      <PriorityBadge priority={ticket.priority} />
-                    </SideRow>
-                    <SideRow label={t("ticket.col.impact")}>
-                      <span className="text-sm">{t(`impact.${ticket.impact.toLowerCase()}`)}</span>
-                    </SideRow>
-                    <SideRow label={t("ticket.col.urgency")}>
-                      <span className="text-sm">{t(`urgency.${ticket.urgency.toLowerCase()}`)}</span>
-                    </SideRow>
-                  </>
-                )}
-                {ticket.approvalState && (
-                  <SideRow label={t("ticket.col.approval")}>
-                    <span className="text-sm">{t(`approval.${ticket.approvalState.toLowerCase()}`)}</span>
-                  </SideRow>
-                )}
-                <SideRow label={t("ticket.meta.created")}>
-                  <time dateTime={ticket.createdAt} className="text-sm">
-                    {formatDateTime(ticket.createdAt)}
-                  </time>
-                </SideRow>
-                <SideRow label={t("ticket.meta.updated")}>
-                  <time dateTime={ticket.updatedAt} className="text-sm">
-                    {formatDateTime(ticket.updatedAt)}
-                  </time>
-                </SideRow>
-                {ticket.resolvedAt && (
-                  <SideRow label={t("ticket.meta.resolved")}>
-                    <time dateTime={ticket.resolvedAt} className="text-sm">
-                      {formatDateTime(ticket.resolvedAt)}
-                    </time>
-                  </SideRow>
-                )}
-                {ticket.closedAt && (
-                  <SideRow label={t("ticket.meta.closed")}>
-                    <time dateTime={ticket.closedAt} className="text-sm">
-                      {formatDateTime(ticket.closedAt)}
-                    </time>
-                  </SideRow>
-                )}
-                <SideRow label={t("ticket.meta.id")}>
-                  <code style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: "var(--text-secondary)" }}>
-                    {ticket.id}
-                  </code>
-                </SideRow>
-              </dl>
+          {feedback && (
+            <div style={{ marginTop: 14, padding: "12px 0 0", borderTop: "1px solid var(--border-faint)" }}>
+              <span className="eyebrow">Müşteri Geri Bildirimi</span>
+              <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                <Stars value={feedback.rating} size={18} />
+                <span className="tnum" style={{ fontWeight: 600 }}>{feedback.rating}/5</span>
+              </div>
+              {feedback.comment && <p style={{ margin: "8px 0 0", fontSize: "var(--fs-sm)", color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>{feedback.comment}</p>}
             </div>
-          </div>
-        </aside>
+          )}
+        </div>
       </div>
 
+      {/* Action dialogs */}
       <ResolveDialog
         open={dialog === "resolve"}
         submitting={actionSubmitting}
         onClose={() => !actionSubmitting && setDialog(null)}
         onSubmit={(resolutionNote, resolutionCode) => {
           const payload: ResolveTicketPayload = { resolutionNote, resolutionCode };
-          return runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/resolve`, payload),
-            () => setDialog(null),
-            "ticket.resolve.success",
-          );
+          return runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/resolve`, payload), () => setDialog(null), "Talep çözüldü");
         }}
       />
-
       <ConfirmCloseDialog
         open={dialog === "confirmClose"}
         submitting={actionSubmitting}
         onClose={() => !actionSubmitting && setDialog(null)}
-        onSubmit={() =>
-          runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/confirm-close`),
-            () => setDialog(null),
-            "ticket.confirm_close.success",
-          )
-        }
+        onSubmit={() => runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/confirm-close`), () => setDialog(null), "Talep kapatıldı")}
       />
-
       <ForceCloseDialog
         open={dialog === "forceClose"}
         submitting={actionSubmitting}
         onClose={() => !actionSubmitting && setDialog(null)}
         onSubmit={(reason) => {
           const payload: ForceClosePayload = { reason };
-          return runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/force-close`, payload),
-            () => setDialog(null),
-            "ticket.force_close.success",
-          );
+          return runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/force-close`, payload), () => setDialog(null), "Talep zorla kapatıldı");
         }}
       />
-
       <ChangePriorityDialog
         open={dialog === "priority"}
         submitting={actionSubmitting}
@@ -653,14 +442,9 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
         onClose={() => !actionSubmitting && setDialog(null)}
         onSubmit={(payload) => {
           const body: ChangePriorityPayload = payload;
-          return runVerifiedAction(
-            () => http.patch<Ticket>(`/api/tickets/${ticketId}/priority`, body),
-            () => setDialog(null),
-            "ticket.priority.success",
-          );
+          return runAction(() => http.patch<Ticket>(`/api/v1/tickets/${ticketId}/priority`, body), () => setDialog(null), "Öncelik güncellendi");
         }}
       />
-
       <OverrideStatusDialog
         open={dialog === "override"}
         submitting={actionSubmitting}
@@ -668,14 +452,9 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
         onClose={() => !actionSubmitting && setDialog(null)}
         onSubmit={(payload) => {
           const body: OverrideStatusPayload = payload;
-          return runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/override-status`, body),
-            () => setDialog(null),
-            "ticket.override.success",
-          );
+          return runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/override-status`, body), () => setDialog(null), "Durum değiştirildi");
         }}
       />
-
       <ReassignDialog
         open={dialog === "reassign"}
         submitting={actionSubmitting}
@@ -683,259 +462,107 @@ export const TicketDetailPage = ({ ticketId, onBack }: Props) => {
         onClose={() => !actionSubmitting && setDialog(null)}
         onSubmit={(payload) => {
           const body: ReassignPayload = payload;
-          return runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/reassign`, body),
-            () => setDialog(null),
-            "ticket.reassign.success",
-          );
+          return runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/reassign`, body), () => setDialog(null), "Yeniden atandı");
         }}
       />
-
       <ConfirmResumeDialog
         open={dialog === "confirmResume"}
         submitting={transitioning === "IN_PROGRESS"}
         onClose={() => setDialog(null)}
-        onSubmit={() => {
-          setDialog(null);
-          return handlePlainTransition("IN_PROGRESS");
-        }}
+        onSubmit={() => { setDialog(null); return handlePlainTransition("IN_PROGRESS"); }}
       />
-
       <ApproveDialog
         open={dialog === "approve"}
         submitting={actionSubmitting}
         onClose={() => !actionSubmitting && setDialog(null)}
-        onSubmit={() =>
-          runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/approve`),
-            () => setDialog(null),
-            "approval.approve.success",
-          )
-        }
+        onSubmit={() => runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/approve`), () => setDialog(null), "Onaylandı")}
       />
-
       <RejectDialog
         open={dialog === "reject"}
         submitting={actionSubmitting}
         onClose={() => !actionSubmitting && setDialog(null)}
-        onSubmit={(reason) =>
-          runVerifiedAction(
-            () => http.post<Ticket>(`/api/tickets/${ticketId}/reject`, { reason }),
-            () => setDialog(null),
-            "approval.reject.success",
-          )
-        }
+        onSubmit={(reason) => runAction(() => http.post<Ticket>(`/api/v1/tickets/${ticketId}/reject`, { reason }), () => setDialog(null), "Reddedildi")}
+      />
+      <ComplaintDialog
+        open={dialog === "complaint"}
+        submitting={actionSubmitting}
+        onClose={() => !actionSubmitting && setDialog(null)}
+        onSubmit={async (body) => {
+          setActionSubmitting(true);
+          try {
+            await http.post(`/api/v1/tickets/${ticketId}/complaints`, { body });
+            await refreshTimeline();
+            toast.success("Şikayetiniz alındı");
+            setDialog(null);
+          } catch { toast.error("İşlem başarısız"); }
+          finally { setActionSubmitting(false); }
+        }}
+      />
+      <FeedbackDialog
+        open={dialog === "feedback"}
+        submitting={actionSubmitting}
+        onClose={() => !actionSubmitting && setDialog(null)}
+        onSubmit={async (rating, comment) => {
+          setActionSubmitting(true);
+          try {
+            const res = await http.post<FeedbackData>(`/api/v1/tickets/${ticketId}/feedback`, { rating, comment });
+            setFeedback(res.data);
+            toast.success("Geri bildiriminiz kaydedildi");
+            setDialog(null);
+          } catch { toast.error("İşlem başarısız"); }
+          finally { setActionSubmitting(false); }
+        }}
       />
     </div>
   );
 };
 
-const AttachmentsPanel = ({
-  attachments,
-  allowedActions,
-  uploading,
-  onUpload,
-  onDownload,
-}: {
-  attachments: Attachment[];
-  allowedActions: Set<TicketAction>;
-  uploading: boolean;
-  onUpload: (file: File, visibility: Visibility) => void | Promise<void>;
-  onDownload: (att: Attachment) => void | Promise<void>;
-}) => {
-  const { t } = useTranslation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [visibility, setVisibility] = useState<Visibility>("EXTERNAL");
-  const canUpload = allowedActions.has("ADD_ATTACHMENT");
-  const canPostInternal = allowedActions.has("ADD_WORKLOG"); // Agent/Manager proxy
-  const externalAttachments = attachments.filter((a) => a.visibility === "EXTERNAL");
-  const internalAttachments = attachments.filter((a) => a.visibility === "INTERNAL");
-
-  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) void onUpload(file, visibility);
-    e.target.value = "";
-  };
-
-  if (attachments.length === 0 && !canUpload) return null;
-
-  return (
-    <div className="side-section">
-      <div className="side-section-header">
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <IconPaperclip size={14} aria-hidden />
-          {t("attachment.title")} ({attachments.length})
-        </span>
-      </div>
-      <div className="side-section-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-        {externalAttachments.length > 0 && (
-          <AttachmentList
-            label={t("attachment.external")}
-            items={externalAttachments}
-            onDownload={onDownload}
-          />
-        )}
-        {internalAttachments.length > 0 && (
-          <AttachmentList
-            label={t("attachment.internal")}
-            items={internalAttachments}
-            onDownload={onDownload}
-          />
-        )}
-
-        {canUpload && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--border)" }}>
-            {canPostInternal && (
-              <Select
-                value={visibility}
-                onChange={(e) => setVisibility(e.target.value as Visibility)}
-                aria-label={t("attachment.visibility")}
-                disabled={uploading}
-              >
-                <option value="EXTERNAL">{t("visibility.external")}</option>
-                <option value="INTERNAL">{t("visibility.internal")}</option>
-              </Select>
-            )}
-            <Button
-              variant="default"
-              size="sm"
-              leadingIcon={<IconPaperclip size={14} />}
-              onClick={() => fileInputRef.current?.click()}
-              loading={uploading}
-              disabled={uploading}
-            >
-              {t("attachment.upload")}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={onPick}
-              style={{ display: "none" }}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const AttachmentList = ({
-  label,
-  items,
-  onDownload,
-}: {
-  label: string;
-  items: Attachment[];
-  onDownload: (att: Attachment) => void | Promise<void>;
-}) => (
-  <div>
-    <div style={{
-      fontSize: "0.6875rem",
-      fontWeight: "var(--weight-semibold)",
-      color: "var(--text-muted)",
-      letterSpacing: "0.06em",
-      textTransform: "uppercase",
-      marginBottom: "var(--space-1)",
-    }}>{label}</div>
-    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
-      {items.map((a) => (
-        <li
-          key={a.id}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--space-2)",
-            padding: "var(--space-2)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            background: "var(--bg-subtle)",
-            fontSize: "var(--text-sm)",
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.fileName}</div>
-            <div className="text-muted text-xs">{formatBytes(a.sizeBytes)} · {formatRelative(a.uploadedAt)}</div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            leadingIcon={<IconDownload size={14} />}
-            onClick={() => void onDownload(a)}
-            aria-label="Download"
-          />
-        </li>
-      ))}
-    </ul>
-  </div>
-);
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-const SideRow = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="side-row">
-    <dt>{label}</dt>
-    <dd>{children}</dd>
-  </div>
-);
-
-const TimelineEntry = ({ event }: { event: TimelineEvent }) => {
-  const { t } = useTranslation();
-
+function TimelineItem({ event }: { event: TimelineEvent }) {
   if (event.eventType === "SYSTEM_EVENT") {
     return (
-      <div className="timeline-entry" role="article">
-        <div className="timeline-dot timeline-dot--system">
-          <IconSettings size={14} aria-hidden />
-        </div>
-        <div className="timeline-content">
-          <div className="timeline-meta">
-            <span>{parseSystemPayload(event.payload, t)}</span>
-            <span>·</span>
-            <time dateTime={event.occurredAt}>{formatRelative(event.occurredAt)}</time>
-          </div>
+      <div className="tl-item">
+        <div className="tl-dot"><Icon name="gear" size={11} /></div>
+        <div className="tl-system">
+          <span>{parsePayload(event.payload) || "Sistem olayı"}</span>
+          <span style={{ marginLeft: "auto", fontSize: "var(--fs-cap)" }}>{formatRelative(event.occurredAt)}</span>
         </div>
       </div>
     );
   }
-
-  const isWorklog = event.eventType === "WORKLOG";
-  const isInternal = event.visibility === "INTERNAL";
-
+  const isWork = event.eventType === "WORKLOG";
+  const display = formatActor(event.actorId);
   return (
-    <div className="timeline-entry" role="article">
-      <div className={`timeline-dot ${isWorklog ? "timeline-dot--worklog" : "timeline-dot--comment"}`}>
-        {isWorklog ? <IconClock size={14} aria-hidden /> : <IconMessageSquare size={14} aria-hidden />}
+    <div className={"tl-item " + (isWork ? "tl-worklog" : "tl-comment")}>
+      <div className="tl-dot" style={isWork ? { background: "var(--bg-subtle)" } : undefined}>
+        <Icon name={isWork ? "pencil" : "comment"} size={11} />
       </div>
-      <div className="timeline-content">
-        <div className="timeline-meta">
-          <Avatar name={formatActor(event.actorId)} size="sm" />
-          <span className="timeline-actor">{formatActor(event.actorId)}</span>
-          <span>·</span>
-          <time dateTime={event.occurredAt}>{formatRelative(event.occurredAt)}</time>
-          {isWorklog && <span className="badge badge--sm">{t("timeline.event.worklog")}</span>}
-          {isInternal && <span className="badge badge--sm">{t("timeline.internal")}</span>}
+      <div className="tl-card">
+        <div className="tl-head">
+          <Avatar name={display} size="sm" />
+          <span className="tl-author">{display}</span>
+          <VisibilityPill vis={event.visibility} />
+          <span className="tl-time">{formatRelative(event.occurredAt)}</span>
         </div>
-        {event.body && <div className="timeline-body-text">{event.body}</div>}
+        <div className="tl-body" style={{ whiteSpace: "pre-wrap" }}>{event.body}</div>
       </div>
     </div>
   );
-};
+}
 
-const CommentComposer = ({
-  ticketId,
-  canPostInternal,
-  onAdded
-}: {
-  ticketId: string;
-  canPostInternal: boolean;
-  onAdded: (event: TimelineEvent) => void;
-}) => {
-  const { t } = useTranslation();
+function parsePayload(payload: string | null): string {
+  if (!payload) return "";
+  try {
+    const d = JSON.parse(payload);
+    if (d.event === "STATUS_CHANGED") return `Durum: ${d.from} → ${d.to}`;
+    if (d.event === "PRIORITY_CHANGED") return `Öncelik: ${d.from} → ${d.to}`;
+    if (d.event === "TICKET_CREATED") return "Talep oluşturuldu";
+    return d.event ?? "Sistem olayı";
+  } catch { return "Sistem olayı"; }
+}
+
+function CommentComposer({
+  ticketId, canPostInternal, onAdded
+}: { ticketId: string; canPostInternal: boolean; onAdded: (e: TimelineEvent) => void }) {
   const toast = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [body, setBody] = useState("");
@@ -948,87 +575,187 @@ const CommentComposer = ({
     setSubmitting(true);
     try {
       const payload: AddCommentPayload = { body: body.trim(), visibility, parentId: null };
-      const res = await http.post<TimelineEvent>(`/api/tickets/${ticketId}/comments`, payload);
+      const res = await http.post<TimelineEvent>(`/api/v1/tickets/${ticketId}/comments`, payload);
       onAdded(res.data);
       setBody("");
       textareaRef.current?.focus();
-    } catch {
-      toast.error(t("error.comment_failed"));
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { toast.error("Yorum gönderilemedi"); }
+    finally { setSubmitting(false); }
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      void submit(e as unknown as FormEvent);
-    }
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) void submit(e as unknown as FormEvent);
   };
 
   return (
-    <form className="composer" onSubmit={(e) => void submit(e)}>
-      <Field
-        htmlFor="comment-body"
-        label={t("ticket.add_comment")}
-        hint={`${body.length} / ${COMMENT_MAX}`}
-      >
-        <Textarea
-          id="comment-body"
-          ref={textareaRef}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={t("ticket.comment.placeholder")}
-          maxLength={COMMENT_MAX}
-          rows={4}
-        />
-      </Field>
-      <div className="composer-footer">
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-          {canPostInternal && (
-            <Select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as Visibility)}
-              aria-label={t("ticket.comment.visibility")}
-              style={{ width: 180 }}
-            >
-              <option value="EXTERNAL">{t("visibility.external")}</option>
-              <option value="INTERNAL">{t("visibility.internal")}</option>
-            </Select>
-          )}
-          <span className="composer-tip">{t("ticket.comment.submit_hint")}</span>
-        </div>
-        <Button
-          type="submit"
-          variant="primary"
-          loading={submitting}
-          disabled={!body.trim()}
-        >
-          {t("ticket.comment.submit")}
-        </Button>
+    <form className="card card-pad col gap-3" onSubmit={(e) => void submit(e)}>
+      <div className="row" style={{ gap: 8 }}>
+        <span className="eyebrow">Yorum Ekle</span>
+        {canPostInternal && (
+          <div className="seg" style={{ marginLeft: "auto" }}>
+            <button type="button" className={visibility === "EXTERNAL" ? "on" : ""} onClick={() => setVisibility("EXTERNAL")}>
+              <Icon name="globe" size={11} style={{ marginRight: 5 }} />Genel
+            </button>
+            <button type="button" className={visibility === "INTERNAL" ? "on" : ""} onClick={() => setVisibility("INTERNAL")}>
+              <Icon name="lock" size={11} style={{ marginRight: 5 }} />Dahili
+            </button>
+          </div>
+        )}
+      </div>
+      <textarea
+        ref={textareaRef}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={onKeyDown}
+        rows={4}
+        maxLength={COMMENT_MAX}
+        placeholder="Yorumunuzu yazın… (Ctrl+Enter ile gönder)"
+        style={{
+          width: "100%",
+          minHeight: 90,
+          padding: 11,
+          border: "1px solid var(--border)",
+          borderRadius: "var(--r-md)",
+          background: "var(--bg-subtle)",
+          fontSize: "var(--fs-sm)",
+          color: "var(--text-primary)",
+          fontFamily: "inherit",
+          resize: "vertical",
+          outline: "none"
+        }}
+      />
+      <div className="row" style={{ gap: 8 }}>
+        <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>{body.length} / {COMMENT_MAX}</span>
+        <span style={{ flex: 1 }} />
+        <button type="submit" className="btn btn-primary" disabled={!body.trim() || submitting}>
+          <Icon name="send" size={13} />Gönder
+        </button>
       </div>
     </form>
   );
-};
+}
 
-function parseSystemPayload(
-  payload: string | null,
-  t: (key: string, opts?: Record<string, string>) => string
-): string {
-  if (!payload) return t("timeline.event.system");
-  try {
-    const data = JSON.parse(payload) as Record<string, string>;
-    if (data.event === "STATUS_CHANGED") {
-      return t("timeline.status_changed", { from: data.from ?? "", to: data.to ?? "" });
-    }
-    if (data.event === "PRIORITY_CHANGED") {
-      return t("timeline.priority_changed", { from: data.from ?? "", to: data.to ?? "" });
-    }
-    if (data.event === "TICKET_CREATED") {
-      return t("timeline.ticket_created");
-    }
-    return data.event ?? t("timeline.event.system");
-  } catch {
-    return t("timeline.event.system");
+function AttachmentsList({
+  attachments, canUpload, canPostInternal, uploading, onUpload, onDownload
+}: {
+  attachments: Attachment[];
+  canUpload: boolean;
+  canPostInternal: boolean;
+  uploading: boolean;
+  onUpload: (file: File, visibility: Visibility) => void | Promise<void>;
+  onDownload: (att: Attachment) => void | Promise<void>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [visibility, setVisibility] = useState<Visibility>("EXTERNAL");
+
+  if (attachments.length === 0 && !canUpload) {
+    return <EmptyState icon="paperclip" title="Ek dosya yok" body="Bu talepte henüz ek bulunmuyor." />;
   }
+
+  return (
+    <div className="col gap-3">
+      {attachments.length === 0 ? (
+        <p className="faint" style={{ fontSize: "var(--fs-sm)" }}>Henüz ek yok.</p>
+      ) : (
+        attachments.map((a) => (
+          <div key={a.id} className="row" style={{ gap: 10, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r-md)" }}>
+            <div style={{ width: 32, height: 32, borderRadius: "var(--r-sm)", background: "var(--bg-inset)", display: "grid", placeItems: "center", color: "var(--text-secondary)" }}>
+              <Icon name="paperclip" size={14} />
+            </div>
+            <div className="col" style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: "var(--fs-sm)", fontWeight: 550, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.fileName}</span>
+              <span className="faint" style={{ fontSize: "var(--fs-cap)" }}>
+                {formatBytes(a.sizeBytes)} · {formatActor(a.uploadedBy)} · {formatRelative(a.uploadedAt)}
+                {a.visibility === "INTERNAL" && <> · <VisibilityPill vis="INTERNAL" /></>}
+              </span>
+            </div>
+            <button className="iconbtn" onClick={() => void onDownload(a)} aria-label="İndir"><Icon name="download" size={14} /></button>
+          </div>
+        ))
+      )}
+      {canUpload && (
+        <div className="row" style={{ gap: 8, paddingTop: 8, borderTop: "1px solid var(--border-faint)" }}>
+          {canPostInternal && (
+            <div className="seg">
+              <button className={visibility === "EXTERNAL" ? "on" : ""} onClick={() => setVisibility("EXTERNAL")}>Genel</button>
+              <button className={visibility === "INTERNAL" ? "on" : ""} onClick={() => setVisibility("INTERNAL")}>Dahili</button>
+            </div>
+          )}
+          <button className="btn" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+            <Icon name="paperclip" size={13} />{uploading ? "Yükleniyor…" : "Dosya yükle"}
+          </button>
+          <input ref={fileInputRef} type="file" style={{ display: "none" }} onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void onUpload(f, visibility);
+            e.target.value = "";
+          }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function ComplaintDialog({ open, submitting, onClose, onSubmit }: {
+  open: boolean; submitting: boolean; onClose: () => void;
+  onSubmit: (body: string) => void | Promise<void>;
+}) {
+  const [body, setBody] = useState("");
+  useEffect(() => { if (!open) setBody(""); }, [open]);
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Servis Kalitesi Şikayeti"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>İptal</Button>
+          <Button variant="primary" loading={submitting} disabled={!body.trim() || submitting} onClick={() => onSubmit(body.trim())}>Gönder</Button>
+        </>
+      }
+    >
+      <p className="text-muted text-xs" style={{ marginBottom: 8 }}>Şikayetiniz doğrudan yöneticilere iletilecektir.</p>
+      <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} maxLength={4000} placeholder="Şikayetinizi açıklayın..." />
+    </Dialog>
+  );
+}
+
+function FeedbackDialog({ open, submitting, onClose, onSubmit }: {
+  open: boolean; submitting: boolean; onClose: () => void;
+  onSubmit: (rating: number, comment: string) => void | Promise<void>;
+}) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  useEffect(() => { if (!open) { setRating(5); setComment(""); } }, [open]);
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Geri Bildirim"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>İptal</Button>
+          <Button variant="primary" loading={submitting} disabled={submitting} onClick={() => onSubmit(rating, comment.trim())}>Gönder</Button>
+        </>
+      }
+    >
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ display: "block", marginBottom: 4, fontSize: 13, fontWeight: 500 }}>Puanınız</label>
+        <div style={{ display: "flex", gap: 4 }}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} type="button" onClick={() => setRating(n)}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 28, lineHeight: 1, color: n <= rating ? "#f5b400" : "#cbd5e1", padding: 0 }}>
+              {n <= rating ? "★" : "☆"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={4} maxLength={4000} placeholder="Yorumunuz (opsiyonel)..." />
+    </Dialog>
+  );
 }

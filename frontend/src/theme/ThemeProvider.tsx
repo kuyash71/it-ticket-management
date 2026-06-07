@@ -19,6 +19,8 @@ const resolveSystem = (): "light" | "dark" =>
 const applyTheme = (theme: Theme) => {
   const resolved = theme === "system" ? resolveSystem() : theme;
   document.documentElement.setAttribute("data-theme", resolved);
+  document.body.setAttribute("data-theme", resolved);
+  document.body.classList.add("itsm");
 };
 
 export const ThemeProvider = ({ children }: PropsWithChildren) => {

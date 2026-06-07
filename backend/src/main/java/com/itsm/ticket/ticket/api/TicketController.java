@@ -4,6 +4,8 @@ import com.itsm.ticket.ticket.domain.Attachment;
 import com.itsm.ticket.ticket.domain.enums.TicketEventVisibility;
 import com.itsm.ticket.ticket.domain.enums.TicketRole;
 import com.itsm.ticket.ticket.service.TicketService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -24,8 +26,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Tag(name = "Tickets", description = "IT ticket lifecycle management")
 @RestController
-@RequestMapping("/api/tickets")
+@RequestMapping("/api/v1/tickets")
 public class TicketController {
 
     private final TicketService ticketService;
@@ -34,14 +37,33 @@ public class TicketController {
         this.ticketService = ticketService;
     }
 
+    @Operation(summary = "List tickets visible to the caller (max page size 50)")
     @GetMapping
-    public List<TicketResponse> listTickets(Authentication auth) {
+    public List<TicketResponse> listTickets(
+            Authentication auth,
+            @org.springframework.data.web.PageableDefault(size = TicketService.MAX_PAGE_SIZE)
+            org.springframework.data.domain.Pageable pageable) {
         TicketRole role = resolveRole(auth);
-        return ticketService.list(role, auth.getName()).stream()
+        return ticketService.list(role, auth.getName(), pageable).stream()
                 .map(t -> TicketResponse.from(t, role))
                 .toList();
     }
 
+    /**
+     * Doc §6.7 — Manager view of SLA-breached open tickets so that intervention
+     * (override-status / reassign / force-close) can be taken in time.
+     */
+    @Operation(summary = "List overtime tickets (SLA breached, still open) — manager only")
+    @GetMapping("/overtime")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('MANAGER')")
+    public List<TicketResponse> listOvertime(Authentication auth) {
+        TicketRole role = resolveRole(auth);
+        return ticketService.listOvertime().stream()
+                .map(t -> TicketResponse.from(t, role))
+                .toList();
+    }
+
+    @Operation(summary = "Create a new ticket")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TicketResponse createTicket(@Valid @RequestBody CreateTicketRequest request,
@@ -64,6 +86,20 @@ public class TicketController {
                                             @Valid @RequestBody AddWorklogRequest request,
                                             Authentication auth) {
         return TimelineEventResponse.from(ticketService.addWorklog(id, request, auth.getName(), isCustomer(auth)));
+    }
+
+    /**
+     * Doc §7.8 — Customer files a service quality complaint. Recorded as an INTERNAL
+     * timeline event so agent/manager see it without altering the ticket's normal flow.
+     */
+    @Operation(summary = "File a service-quality complaint (customer only)")
+    @PostMapping("/{id}/complaints")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TimelineEventResponse addComplaint(@PathVariable UUID id,
+                                              @Valid @RequestBody AddComplaintRequest request,
+                                              Authentication auth) {
+        return TimelineEventResponse.from(
+                ticketService.addComplaint(id, request, auth.getName(), isCustomer(auth)));
     }
 
     @PatchMapping("/{id}/status")
@@ -179,14 +215,38 @@ public class TicketController {
                 ticketService.rejectRequest(id, request.reason(), role, auth.getName()), role);
     }
 
+    @Operation(summary = "Get a single ticket by ID")
     @GetMapping("/{id}")
     public TicketResponse getTicket(@PathVariable UUID id, Authentication auth) {
-        return TicketResponse.from(ticketService.getById(id), resolveRole(auth));
+        TicketRole role = resolveRole(auth);
+        return TicketResponse.from(ticketService.getById(id, role, auth.getName()), role);
+    }
+
+    /**
+     * Doc §4.4.6 — Customer submits feedback after CLOSE. One per ticket, reporter only.
+     */
+    @Operation(summary = "Submit customer feedback for a closed ticket")
+    @PostMapping("/{id}/feedback")
+    @ResponseStatus(HttpStatus.CREATED)
+    public FeedbackResponse submitFeedback(@PathVariable UUID id,
+                                           @Valid @RequestBody SubmitFeedbackRequest request,
+                                           Authentication auth) {
+        return FeedbackResponse.from(
+                ticketService.submitFeedback(id, request, auth.getName(), isCustomer(auth)));
+    }
+
+    @Operation(summary = "Get the feedback submitted for a ticket (if any)")
+    @GetMapping("/{id}/feedback")
+    public ResponseEntity<FeedbackResponse> getFeedback(@PathVariable UUID id, Authentication auth) {
+        return ticketService.findFeedback(id, resolveRole(auth), auth.getName())
+                .map(FeedbackResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     @GetMapping("/{id}/timeline")
     public List<TimelineEventResponse> getTimeline(@PathVariable UUID id, Authentication auth) {
-        return ticketService.getTimeline(id, isCustomer(auth)).stream()
+        return ticketService.getTimeline(id, isCustomer(auth), auth.getName()).stream()
                 .map(TimelineEventResponse::from)
                 .toList();
     }
@@ -196,7 +256,8 @@ public class TicketController {
     public AttachmentResponse addAttachment(@PathVariable UUID id,
                                             @Valid @RequestBody AddAttachmentRequest request,
                                             Authentication auth) {
-        return AttachmentResponse.from(ticketService.addAttachment(id, request, auth.getName()));
+        return AttachmentResponse.from(
+                ticketService.addAttachment(id, request, auth.getName(), isCustomer(auth)));
     }
 
     /**
@@ -210,12 +271,12 @@ public class TicketController {
                                                @RequestParam(value = "visibility", defaultValue = "EXTERNAL") TicketEventVisibility visibility,
                                                Authentication auth) {
         return AttachmentResponse.from(
-                ticketService.uploadAttachment(id, file, visibility, auth.getName()));
+                ticketService.uploadAttachment(id, file, visibility, auth.getName(), isCustomer(auth)));
     }
 
     @GetMapping("/{id}/attachments")
     public List<AttachmentResponse> listAttachments(@PathVariable UUID id, Authentication auth) {
-        return ticketService.getAttachments(id, isCustomer(auth)).stream()
+        return ticketService.getAttachments(id, isCustomer(auth), auth.getName()).stream()
                 .map(AttachmentResponse::from)
                 .toList();
     }
@@ -227,12 +288,19 @@ public class TicketController {
     public ResponseEntity<Resource> downloadAttachment(@PathVariable UUID id,
                                                        @PathVariable UUID attachmentId,
                                                        Authentication auth) {
-        Attachment attachment = ticketService.findForDownload(id, attachmentId, isCustomer(auth));
+        Attachment attachment = ticketService.findForDownload(id, attachmentId, isCustomer(auth), auth.getName());
         Resource resource = new FileSystemResource(ticketService.resolveAttachmentPath(attachment));
         String encoded = URLEncoder.encode(attachment.getFileName(), StandardCharsets.UTF_8)
                 .replace("+", "%20");
+        // DB'de bozuk/eski bir mime kayıtlıysa parseMediaType throws → 500. Defensive default.
+        MediaType contentType;
+        try {
+            contentType = MediaType.parseMediaType(attachment.getMimeType());
+        } catch (org.springframework.http.InvalidMediaTypeException ignored) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM;
+        }
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(attachment.getMimeType()))
+                .contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename*=UTF-8''" + encoded)
                 .body(resource);
@@ -242,7 +310,9 @@ public class TicketController {
         Set<String> authorities = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
-        return !authorities.contains("ROLE_MANAGER") && !authorities.contains("ROLE_AGENT");
+        return authorities.contains("ROLE_CUSTOMER")
+                && !authorities.contains("ROLE_MANAGER")
+                && !authorities.contains("ROLE_AGENT");
     }
 
     private TicketRole resolveRole(Authentication auth) {

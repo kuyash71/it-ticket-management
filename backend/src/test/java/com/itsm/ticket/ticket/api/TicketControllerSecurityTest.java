@@ -6,6 +6,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketEventType;
 import com.itsm.ticket.ticket.domain.enums.TicketEventVisibility;
 import com.itsm.ticket.ticket.domain.enums.TicketType;
 import com.itsm.ticket.ticket.service.TicketService;
+import com.itsm.ticket.users.KnownAgentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,9 @@ class TicketControllerSecurityTest {
     @MockBean
     private JwtDecoder jwtDecoder;
 
+    @MockBean
+    private KnownAgentService knownAgentService;
+
     private TicketEvent stubEvent;
 
     @BeforeEach
@@ -62,13 +66,13 @@ class TicketControllerSecurityTest {
 
     @Test
     void listTickets_noAuth_shouldReturn401() throws Exception {
-        mockMvc.perform(get("/api/tickets"))
+        mockMvc.perform(get("/api/v1/tickets"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void createTicket_noAuth_shouldReturn4xx() throws Exception {
-        mockMvc.perform(post("/api/tickets")
+        mockMvc.perform(post("/api/v1/tickets")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new CreateTicketRequest(TicketType.INCIDENT, "Title", "Desc", null, null))))
@@ -77,7 +81,7 @@ class TicketControllerSecurityTest {
 
     @Test
     void addWorklog_noAuth_shouldReturn4xx() throws Exception {
-        mockMvc.perform(post("/api/tickets/{id}/worklogs", UUID.randomUUID())
+        mockMvc.perform(post("/api/v1/tickets/{id}/worklogs", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new AddWorklogRequest("did some work", TicketEventVisibility.INTERNAL))))
@@ -88,9 +92,9 @@ class TicketControllerSecurityTest {
 
     @Test
     void listTickets_asCustomer_shouldReturn200() throws Exception {
-        when(ticketService.list(any(), any())).thenReturn(List.of());
+        when(ticketService.list(any(), any(), any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/tickets")
+        mockMvc.perform(get("/api/v1/tickets")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
                 .andExpect(status().isOk());
     }
@@ -100,7 +104,7 @@ class TicketControllerSecurityTest {
         when(ticketService.addWorklog(any(), any(), any(), eq(true)))
                 .thenThrow(new UnauthorizedOperationException("Only agents and managers can add worklogs"));
 
-        mockMvc.perform(post("/api/tickets/{id}/worklogs", UUID.randomUUID())
+        mockMvc.perform(post("/api/v1/tickets/{id}/worklogs", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new AddWorklogRequest("some work", TicketEventVisibility.INTERNAL)))
@@ -110,9 +114,9 @@ class TicketControllerSecurityTest {
 
     @Test
     void getTimeline_asCustomer_shouldReturn200() throws Exception {
-        when(ticketService.getTimeline(any(), anyBoolean())).thenReturn(List.of());
+        when(ticketService.getTimeline(any(), anyBoolean(), any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/tickets/{id}/timeline", UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/tickets/{id}/timeline", UUID.randomUUID())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
                 .andExpect(status().isOk());
     }
@@ -121,9 +125,9 @@ class TicketControllerSecurityTest {
 
     @Test
     void listTickets_asAgent_shouldReturn200() throws Exception {
-        when(ticketService.list(any(), any())).thenReturn(List.of());
+        when(ticketService.list(any(), any(), any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/tickets")
+        mockMvc.perform(get("/api/v1/tickets")
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 .andExpect(status().isOk());
     }
@@ -132,7 +136,7 @@ class TicketControllerSecurityTest {
     void addWorklog_asAgent_shouldReturn201() throws Exception {
         when(ticketService.addWorklog(any(), any(), any(), eq(false))).thenReturn(stubEvent);
 
-        mockMvc.perform(post("/api/tickets/{id}/worklogs", UUID.randomUUID())
+        mockMvc.perform(post("/api/v1/tickets/{id}/worklogs", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new AddWorklogRequest("Investigated logs", TicketEventVisibility.INTERNAL)))
@@ -142,9 +146,9 @@ class TicketControllerSecurityTest {
 
     @Test
     void getTimeline_asAgent_shouldReturn200() throws Exception {
-        when(ticketService.getTimeline(any(), anyBoolean())).thenReturn(List.of());
+        when(ticketService.getTimeline(any(), anyBoolean(), any())).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/tickets/{id}/timeline", UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/tickets/{id}/timeline", UUID.randomUUID())
                         .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_AGENT"))))
                 .andExpect(status().isOk());
     }
@@ -155,7 +159,7 @@ class TicketControllerSecurityTest {
     void addWorklog_asManager_shouldReturn201() throws Exception {
         when(ticketService.addWorklog(any(), any(), any(), eq(false))).thenReturn(stubEvent);
 
-        mockMvc.perform(post("/api/tickets/{id}/worklogs", UUID.randomUUID())
+        mockMvc.perform(post("/api/v1/tickets/{id}/worklogs", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new AddWorklogRequest("Reviewed escalation", TicketEventVisibility.INTERNAL)))

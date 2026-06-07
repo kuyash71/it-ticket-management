@@ -5,11 +5,20 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Publishes domain log events to the {@code itsm.logs} Kafka topic and asynchronously indexes
+ * them into OpenSearch.
+ *
+ * <p>Kafka send is fire-and-forget ({@code syncSend=false}) so that logging never blocks the
+ * request thread. MDC values are captured before the async hand-off to preserve trace context.
+ */
 @Service
 public class KafkaLogProducer {
 
@@ -26,6 +35,21 @@ public class KafkaLogProducer {
     }
 
     public void publish(LogEvent event) {
+        // İçinde bulunulan transaction varsa, fiili yayını commit sonrasına ertele —
+        // rollback durumunda hayalet event'lar dışarı çıkmaz (audit/Kafka tutarlılığı).
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    doPublish(event);
+                }
+            });
+            return;
+        }
+        doPublish(event);
+    }
+
+    private void doPublish(LogEvent event) {
         // Capture MDC values in the request thread before any async handoff.
         String traceId = MDC.get("traceId") != null ? MDC.get("traceId") : "";
 

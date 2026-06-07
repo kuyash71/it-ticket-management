@@ -7,26 +7,24 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class KeycloakRealmRoleConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
         Set<GrantedAuthority> authorities = new HashSet<>();
+        collectRoles(jwt.getClaim("realm_access"), authorities);
 
-        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-        if (realmAccess != null && realmAccess.get("roles") instanceof List<?> roles) {
-            authorities.addAll(roles.stream()
-                    .filter(String.class::isInstance)
-                    .map(String.class::cast)
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                    .collect(Collectors.toSet()));
+        Object resourceAccess = jwt.getClaim("resource_access");
+        if (resourceAccess instanceof Map<?, ?> ra) {
+            for (Object entry : ra.values()) {
+                collectRoles(entry, authorities);
+            }
         }
 
         String principalName = jwt.getClaimAsString("preferred_username");
@@ -35,5 +33,16 @@ public class KeycloakRealmRoleConverter implements Converter<Jwt, AbstractAuthen
         }
 
         return new JwtAuthenticationToken(jwt, authorities, principalName);
+    }
+
+    private static void collectRoles(Object claim, Set<GrantedAuthority> sink) {
+        if (!(claim instanceof Map<?, ?> map)) return;
+        Object roles = map.get("roles");
+        if (!(roles instanceof List<?> list)) return;
+        for (Object role : list) {
+            if (role instanceof String s && !s.isBlank()) {
+                sink.add(new SimpleGrantedAuthority("ROLE_" + s.toUpperCase(Locale.ROOT)));
+            }
+        }
     }
 }

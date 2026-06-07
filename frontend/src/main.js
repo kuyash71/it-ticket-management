@@ -5,5 +5,7 @@ import { App } from "./App";
 import { AuthProvider } from "./auth/AuthProvider";
 import { ToastProvider } from "./components/ui/Toast";
 import { ThemeProvider } from "./theme/ThemeProvider";
+import "./styles/globals.css";
+import "./styles/itsm.css";
 import "./i18n";
 ReactDOM.createRoot(document.getElementById("root")).render(_jsx(React.StrictMode, { children: _jsx(ThemeProvider, { children: _jsx(ToastProvider, { children: _jsx(AuthProvider, { children: _jsx(App, {}) }) }) }) }));

@@ -1,189 +1,126 @@
-import { useCallback, useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "./auth/AuthProvider";
-import { useRole } from "./auth/useRole";
-import { Sidebar } from "./components/Sidebar";
-import { Topbar } from "./components/Topbar";
-import { CommandPalette } from "./components/ui/CommandPalette";
-import type { CommandAction } from "./components/ui/CommandPalette";
-import {
-  IconBarChart,
-  IconInbox,
-  IconLayoutDashboard,
-  IconLogOut,
-  IconMoon,
-  IconPlus,
-  IconSettings,
-  IconSun
-} from "./components/ui/Icon";
-import { LoadingState } from "./components/ui/Spinner";
+import { Sidebar, Topbar } from "./components/itsm/Shell";
+import { Icon } from "./components/itsm/Icon";
+import { parseJwtPayload } from "./lib/jwt";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { TicketsPage } from "./pages/TicketsPage";
-import { useTheme } from "./theme/ThemeProvider";
-import "./styles/globals.css";
 
 export type AppView =
   | { name: "dashboard" }
-  | { name: "tickets" }
+  | { name: "tickets"; overtime?: boolean }
   | { name: "ticket-detail"; id: string }
   | { name: "reports" }
   | { name: "settings" };
 
-const SIDEBAR_KEY = "itsm.sidebar.collapsed";
+const TITLES: Record<string, { title: string; crumb: string }> = {
+  dashboard: { title: "Genel Bakış", crumb: "Hoş geldiniz" },
+  tickets: { title: "Talepler", crumb: "Tüm talepler" },
+  reports: { title: "Raporlar", crumb: "Tüm metrikler" },
+  settings: { title: "Ayarlar", crumb: "Kişisel tercihler" },
+};
 
 export const App = () => {
-  const { t } = useTranslation();
-  const { initialized, logout } = useAuth();
-  const { isCustomer } = useRole();
-  const { resolved, setTheme } = useTheme();
-
+  const { initialized, token, roles } = useAuth();
   const [view, setView] = useState<AppView>({ name: "dashboard" });
-  const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem(SIDEBAR_KEY) === "1");
-  const [commandOpen, setCommandOpen] = useState(false);
   const [createTicketOpen, setCreateTicketOpen] = useState(false);
 
-  const toggleCollapse = useCallback(() => {
-    setCollapsed((c) => {
-      const next = !c;
-      localStorage.setItem(SIDEBAR_KEY, next ? "1" : "0");
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setCommandOpen((o) => !o);
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.body.classList.add("itsm");
+    if (!document.body.getAttribute("data-theme")) {
+      document.body.setAttribute("data-theme", "light");
+    }
   }, []);
 
   if (!initialized) {
     return (
-      <div style={{ height: "100vh", display: "grid", placeItems: "center", background: "var(--bg)" }}>
-        <LoadingState text={t("app.loading")} />
+      <div className="itsm" data-theme="light" style={{ height: "100vh", display: "grid", placeItems: "center" }}>
+        <div className="col" style={{ alignItems: "center", gap: 12 }}>
+          <Icon name="spin" size={32} />
+          <span className="faint">Yükleniyor…</span>
+        </div>
       </div>
     );
   }
 
-  const activeView = view.name === "ticket-detail" ? "tickets" : view.name;
+  const role: "MANAGER" | "AGENT" | "CUSTOMER" = roles.includes("MANAGER")
+    ? "MANAGER"
+    : roles.includes("AGENT")
+    ? "AGENT"
+    : "CUSTOMER";
 
+  const roleLabel = role === "MANAGER" ? "Yönetici" : role === "AGENT" ? "Uzman" : "Müşteri";
+
+  const userName = (() => {
+    if (!token) return "Kullanıcı";
+    try {
+      const p = parseJwtPayload(token);
+      return (p.name as string) ?? (p.preferred_username as string) ?? "Kullanıcı";
+    } catch { return "Kullanıcı"; }
+  })();
+
+  const activeId =
+    view.name === "ticket-detail" ? "tickets"
+    : view.name === "tickets" && view.overtime ? "overtime"
+    : view.name;
+  const meta = TITLES[activeId] ?? TITLES.dashboard;
   const navigate = (next: AppView) => setView(next);
+  const isCustomer = role === "CUSTOMER";
 
-  const commands: CommandAction[] = [
-    {
-      key: "nav.dashboard",
-      label: t("nav.dashboard"),
-      group: t("command.group.navigate"),
-      icon: <IconLayoutDashboard />,
-      onSelect: () => navigate({ name: "dashboard" })
-    },
-    {
-      key: "nav.tickets",
-      label: t("nav.tickets"),
-      group: t("command.group.navigate"),
-      icon: <IconInbox />,
-      onSelect: () => navigate({ name: "tickets" })
-    },
-    ...(isCustomer()
-      ? []
-      : [
-          {
-            key: "nav.reports",
-            label: t("nav.reports"),
-            group: t("command.group.navigate"),
-            icon: <IconBarChart />,
-            onSelect: () => navigate({ name: "reports" })
-          }
-        ]),
-    {
-      key: "nav.settings",
-      label: t("nav.settings"),
-      group: t("command.group.navigate"),
-      icon: <IconSettings />,
-      onSelect: () => navigate({ name: "settings" })
-    },
-    {
-      key: "action.create-ticket",
-      label: t("ticket.create"),
-      group: t("command.group.actions"),
-      icon: <IconPlus />,
-      onSelect: () => {
-        navigate({ name: "tickets" });
-        setCreateTicketOpen(true);
-      }
-    },
-    {
-      key: "action.theme-toggle",
-      label: resolved === "dark" ? t("theme.light") : t("theme.dark"),
-      group: t("command.group.actions"),
-      icon: resolved === "dark" ? <IconSun /> : <IconMoon />,
-      onSelect: () => setTheme(resolved === "dark" ? "light" : "dark")
-    },
-    {
-      key: "action.logout",
-      label: t("auth.logout"),
-      group: t("command.group.actions"),
-      icon: <IconLogOut />,
-      onSelect: logout
-    }
-  ];
+  const topActions = (
+    <>
+      {!isCustomer && view.name !== "settings" && (
+        <button className="btn" onClick={() => { navigate({ name: "tickets" }); setCreateTicketOpen(true); }}>
+          <Icon name="plus" size={13} />Yeni Talep
+        </button>
+      )}
+      {isCustomer && view.name === "tickets" && (
+        <button className="btn btn-primary" onClick={() => setCreateTicketOpen(true)}>
+          <Icon name="plus" size={13} />Yeni Talep
+        </button>
+      )}
+    </>
+  );
 
   return (
-    <div className="app-shell" data-sidebar={collapsed ? "collapsed" : "expanded"}>
+    <div className="app" style={{ height: "100vh" }}>
       <Sidebar
-        collapsed={collapsed}
-        onToggleCollapse={toggleCollapse}
-        activeView={activeView}
-        onNavigate={navigate}
+        role={role}
+        userName={userName}
+        userRoleLabel={roleLabel}
+        active={activeId}
+        navigate={navigate}
       />
-
-      <div className="main-area">
-        <Topbar onOpenCommand={() => setCommandOpen(true)} onNavigate={navigate} />
-
-        <div className="page-scroll">
+      <div className="main">
+        <Topbar title={meta.title} crumb={meta.crumb} showSearch={!isCustomer} actions={topActions} />
+        <div className="content">
           {view.name === "dashboard" && (
             <DashboardPage
               onOpenTicket={(id) => navigate({ name: "ticket-detail", id })}
               onNavigate={navigate}
-              onCreateTicket={() => {
-                navigate({ name: "tickets" });
-                setCreateTicketOpen(true);
-              }}
+              onCreateTicket={() => { navigate({ name: "tickets" }); setCreateTicketOpen(true); }}
             />
           )}
           {view.name === "tickets" && (
             <TicketsPage
+              key={view.overtime ? "tickets-overtime" : "tickets-all"}
+              initialOvertime={!!view.overtime}
               onViewDetail={(id) => navigate({ name: "ticket-detail", id })}
               externalCreateOpen={createTicketOpen}
               onCreateOpenChange={setCreateTicketOpen}
             />
           )}
           {view.name === "ticket-detail" && (
-            <TicketDetailPage
-              ticketId={view.id}
-              onBack={() => navigate({ name: "tickets" })}
-            />
+            <TicketDetailPage ticketId={view.id} onBack={() => navigate({ name: "tickets" })} />
           )}
-          {view.name === "reports" && !isCustomer() && <ReportsPage />}
+          {view.name === "reports" && !isCustomer && <ReportsPage />}
           {view.name === "settings" && <SettingsPage />}
         </div>
       </div>
-
-      <CommandPalette
-        open={commandOpen}
-        onClose={() => setCommandOpen(false)}
-        actions={commands}
-        placeholder={t("command.placeholder")}
-        emptyText={t("command.empty")}
-      />
     </div>
   );
 };

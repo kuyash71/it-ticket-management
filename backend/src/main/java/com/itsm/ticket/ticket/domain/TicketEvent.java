@@ -70,6 +70,20 @@ public class TicketEvent {
         return e;
     }
 
+    static TicketEvent complaint(Ticket ticket, String actorId, String body) {
+        TicketEvent e = new TicketEvent();
+        e.id = UUID.randomUUID();
+        e.ticket = ticket;
+        e.eventType = TicketEventType.SERVICE_QUALITY_COMPLAINT;
+        e.actorId = actorId;
+        e.body = body;
+        // EXTERNAL: customer kendi şikayetini de timeline'da görür (kayıt aldığını teyit eder).
+        // Manager'a yönelik proaktif bilgilendirme NotificationService üzerinden ayrıca tetiklenir.
+        e.visibility = TicketEventVisibility.EXTERNAL;
+        e.occurredAt = Instant.now();
+        return e;
+    }
+
     static TicketEvent systemEvent(Ticket ticket, String actorId, String payload) {
         TicketEvent e = new TicketEvent();
         e.id = UUID.randomUUID();

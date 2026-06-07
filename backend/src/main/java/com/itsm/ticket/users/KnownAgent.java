@@ -26,6 +26,9 @@ public class KnownAgent {
     @Column(nullable = false, length = 16)
     private String role;
 
+    @Column(length = 255)
+    private String email;
+
     @Column(nullable = false)
     private Instant lastSeenAt;
 
@@ -49,5 +52,6 @@ public class KnownAgent {
     public String getUsername() { return username; }
     public String getDisplayName() { return displayName; }
     public String getRole() { return role; }
+    public String getEmail() { return email; }
     public Instant getLastSeenAt() { return lastSeenAt; }
 }

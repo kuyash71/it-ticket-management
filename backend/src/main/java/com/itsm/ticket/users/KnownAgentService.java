@@ -16,7 +16,12 @@ public class KnownAgentService {
 
     @Transactional
     public void upsert(String username, String displayName, String role) {
+        upsert(username, displayName, role, null);
+    }
+
+    @Transactional
+    public void upsert(String username, String displayName, String role, String email) {
         if (username == null || username.isBlank()) return;
-        repository.upsert(username, displayName, role, Instant.now());
+        repository.upsert(username, displayName, role, email, Instant.now());
     }
 }

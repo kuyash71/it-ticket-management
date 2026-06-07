@@ -8,6 +8,8 @@ services:
       POSTGRES_PASSWORD: itsm
     ports:
       - "5433:5432"
+    volumes:
+      - itsm-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U itsm -d itsm"]
       interval: 10s
@@ -42,9 +44,11 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: dev-file
     volumes:
       - ./infra/keycloak/realm-itsm.json:/opt/keycloak/data/import/realm-itsm.json
       - ./infra/keycloak/themes/itsm:/opt/keycloak/themes/itsm
+      - itsm-keycloak:/opt/keycloak/data
     ports:
       - "8081:8080"
 
@@ -90,6 +94,11 @@ services:
       otel-collector:
         condition: service_started
     environment:
+      # Profile seçimi: 'dev' → auth bypass + fake user; boş/default → gerçek Keycloak akışı.
+      # Kullanım:  SPRING_PROFILE=dev docker compose up -d backend
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-default}
+      ITSM_AUTH_FAKE_USER: ${ITSM_AUTH_FAKE_USER:-manager1}
+      ITSM_AUTH_FAKE_ROLES: ${ITSM_AUTH_FAKE_ROLES:-MANAGER}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/itsm
       SPRING_DATASOURCE_USERNAME: itsm
       SPRING_DATASOURCE_PASSWORD: itsm
@@ -100,6 +109,23 @@ services:
       OBSERVABILITY_OPENSEARCH_URL: http://opensearch:9200
       OBSERVABILITY_OPENSEARCH_INDEX: itsm-logs
       ATTACHMENT_STORAGE_PATH: /var/itsm/attachments
+      # ─── Mail / Auto-reminder (Doc §4.2) ────────────────────────────
+      # SMTP_HOST boş bırakılırsa MailService log-only mode'a düşer
+      # (uygulama çalışır, mail atılmaz, scheduler reminder/flag bookkeeping yapar).
+      # Gerçek mail için aşağıdaki örneği kendi SMTP sağlayıcınızla değiştirin:
+      #   SMTP_HOST: smtp.gmail.com   (veya smtp.mailgun.org, email-smtp.eu-west-1.amazonaws.com vs.)
+      #   SMTP_USERNAME: noreply@your-domain.com
+      #   SMTP_PASSWORD: <app-password>   (Gmail için App Password, normal şifre değil)
+      SMTP_HOST: ""
+      SMTP_PORT: "587"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_AUTH: "true"
+      SMTP_STARTTLS: "true"
+      ABANDONED_FROM: "noreply@itsm.local"
+      ABANDONED_REMINDER_HOURS: "24"
+      ABANDONED_TIMEOUT_HOURS: "168"          # 7 gün
+      ABANDONED_SCAN_CRON: "0 0 * * * *"      # Her saat başı
     volumes:
       - itsm-attachments:/var/itsm/attachments
     ports:
@@ -131,6 +157,8 @@ services:
 
 volumes:
   itsm-attachments:
+  itsm-postgres:
+  itsm-keycloak:
   opensearch-data:
   prometheus:
   grafana:

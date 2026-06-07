@@ -21,7 +21,28 @@ export const setBearerToken = (token?: string) => {
   http.defaults.headers.common.Authorization = `Bearer ${token}`;
 };
 
-// 401 gelince token'ı yenile ve isteği tekrar at; başarısız olursa login'e yönlendir.
+/**
+ * Singleton refresh promise — paralel 401'lerde Keycloak'a yalnızca tek bir updateToken
+ * çağrısı gider. Eskisinde her başarısız istek kendi refresh'ini tetikliyordu (thundering herd).
+ */
+let inflightRefresh: Promise<string | undefined> | null = null;
+
+function refreshOnce(): Promise<string | undefined> {
+  if (inflightRefresh) return inflightRefresh;
+  inflightRefresh = keycloak
+    .updateToken(30) // 30 saniye min-validity: az çok yeni token'larda no-op döner
+    .then(() => keycloak.token)
+    .catch((err) => {
+      // Refresh fail → login flow başlasın.
+      void keycloak.login();
+      throw err;
+    })
+    .finally(() => {
+      inflightRefresh = null;
+    });
+  return inflightRefresh;
+}
+
 http.interceptors.response.use(
   (response) => response,
   async (error: unknown) => {
@@ -31,15 +52,17 @@ http.interceptors.response.use(
       !(error.config as RetryConfig)?._retry
     ) {
       try {
-        await keycloak.updateToken(0);
-        setBearerToken(keycloak.token);
+        const fresh = await refreshOnce();
+        if (!fresh) return Promise.reject(error);
+        setBearerToken(fresh);
         const config = error.config as RetryConfig;
         config._retry = true;
         config.headers = config.headers ?? {};
-        config.headers.Authorization = `Bearer ${keycloak.token}`;
+        config.headers.Authorization = `Bearer ${fresh}`;
         return http(config);
       } catch {
-        void keycloak.login();
+        // refreshOnce already called keycloak.login()
+        return Promise.reject(error);
       }
     }
     return Promise.reject(error);

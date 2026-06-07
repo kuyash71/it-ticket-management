@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Entity
+@Table(name = "sla_clock")
 public class SLAClock {
 
     @Id
