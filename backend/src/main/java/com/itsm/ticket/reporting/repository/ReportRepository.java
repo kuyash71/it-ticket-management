@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/** Aggregate queries powering {@code ReportService}. Returns raw object arrays for grouped results. */
 public interface ReportRepository extends Repository<Ticket, UUID> {
 
     @Query("SELECT t.status, COUNT(t) FROM Ticket t GROUP BY t.status")

@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
+/** Records each authenticated user (insert or update) so the directory stays current. */
 @Service
 public class KnownAgentService {
 

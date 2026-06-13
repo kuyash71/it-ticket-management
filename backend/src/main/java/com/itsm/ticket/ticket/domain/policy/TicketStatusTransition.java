@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+/** Default lifecycle rules (Doc §5.4): which role may move a ticket from one status to another. */
 public class TicketStatusTransition implements StatusTransitionPolicy {
 
     private final Map<TransitionKey, Set<TicketRole>> transitions;

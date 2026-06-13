@@ -13,11 +13,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Publishes domain log events to the {@code itsm.logs} Kafka topic and asynchronously indexes
- * them into OpenSearch.
- *
- * <p>Kafka send is fire-and-forget ({@code syncSend=false}) so that logging never blocks the
- * request thread. MDC values are captured before the async hand-off to preserve trace context.
+ * Publishes domain events to the {@code itsm.logs} Kafka topic and asynchronously indexes them
+ * into OpenSearch. Fire-and-forget; deferred to {@code afterCommit} when called inside a tx.
  */
 @Service
 public class KafkaLogProducer {
@@ -34,9 +31,8 @@ public class KafkaLogProducer {
         this.openSearchLogIndexer = openSearchLogIndexer;
     }
 
+    /** Publishes the event; defers to {@code afterCommit} when called within an active tx. */
     public void publish(LogEvent event) {
-        // İçinde bulunulan transaction varsa, fiili yayını commit sonrasına ertele —
-        // rollback durumunda hayalet event'lar dışarı çıkmaz (audit/Kafka tutarlılığı).
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

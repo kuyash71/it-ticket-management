@@ -2,6 +2,7 @@ package com.itsm.ticket.logging;
 
 import java.util.Map;
 
+/** Structured payload published to Kafka and indexed in OpenSearch. */
 public record LogEvent(
         String eventType,
         String ticketId,

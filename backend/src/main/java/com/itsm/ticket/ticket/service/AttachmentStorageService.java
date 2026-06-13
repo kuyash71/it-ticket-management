@@ -16,8 +16,8 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 /**
- * Filesystem-backed attachment store (Doc §9).
- * Files are written to {storage-path}/{ticketId}/{storageKey} so deletion can cascade per-ticket.
+ * Filesystem-backed attachment store (Doc §9). Files are written to
+ * {@code {storage-path}/{ticketId}/{storageKey}}; resolve enforces traversal-safety.
  */
 @Service
 public class AttachmentStorageService {
@@ -41,8 +41,10 @@ public class AttachmentStorageService {
     }
 
     /**
-     * Persists the upload to disk and returns a stable storage key suitable for download retrieval.
-     * The key is {ticketId}/{uuid}-{sanitizedName}.
+     * Writes the upload under the ticket directory and returns its storage key
+     * ({@code {ticketId}/{uuid}-{sanitizedName}}).
+     *
+     * @throws IllegalArgumentException if the file is empty or path traversal is detected
      */
     public String store(UUID ticketId, MultipartFile file) {
         if (file.isEmpty()) {
@@ -70,7 +72,9 @@ public class AttachmentStorageService {
     }
 
     /**
-     * Resolves a previously stored object to a Path on disk. Throws if the key tries to escape root.
+     * Resolves a storage key back to a filesystem path.
+     *
+     * @throws IllegalArgumentException if the key escapes the storage root or the file is missing
      */
     public Path resolve(String storageKey) {
         Path candidate = root.resolve(storageKey).normalize();

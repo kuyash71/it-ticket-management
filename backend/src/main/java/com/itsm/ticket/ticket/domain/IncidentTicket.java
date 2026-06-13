@@ -5,6 +5,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketUrgency;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 
+/** Subtype representing an unplanned IT failure or incident (Doc §2.1). */
 @Entity
 @DiscriminatorValue("INCIDENT")
 public class IncidentTicket extends Ticket {

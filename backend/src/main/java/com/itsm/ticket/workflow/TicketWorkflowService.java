@@ -11,6 +11,11 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Bridges the ticket aggregate to Kogito/BPMN process instances. Starts the lifecycle
+ * matching the ticket type; falls back to a synthetic id if the Kogito runtime is absent
+ * so the ticket flow keeps working in tests.
+ */
 @Service
 public class TicketWorkflowService {
 
@@ -19,6 +24,7 @@ public class TicketWorkflowService {
     @Autowired(required = false)
     private Processes processes;
 
+    /** Starts the BPMN lifecycle for a newly created ticket and returns its process instance id. */
     public String startTicketLifecycle(Map<String, Object> variables) {
         if (processes == null) {
             String fallbackId = UUID.randomUUID().toString();

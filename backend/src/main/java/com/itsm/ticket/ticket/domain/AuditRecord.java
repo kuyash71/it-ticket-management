@@ -7,6 +7,10 @@ import org.hibernate.annotations.Check;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Append-only audit log for security and compliance (Doc §11). Every state-changing
+ * domain operation writes one record with actor, action, reason and JSON payload.
+ */
 @Entity
 @Table(name = "audit_records")
 @Check(name = "audit_records_action_check", constraints = "action IN (" +

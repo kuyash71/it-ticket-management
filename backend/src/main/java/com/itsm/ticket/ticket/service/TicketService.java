@@ -36,12 +36,13 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Core business logic for the ticket lifecycle.
+ * Application service orchestrating ticket lifecycle operations.
  *
- * <p>Every state-changing operation emits a structured {@link com.itsm.ticket.logging.LogEvent}
- * to Kafka and records an immutable {@link com.itsm.ticket.ticket.domain.TicketEvent} in the
- * timeline. Status transitions are validated by {@link com.itsm.ticket.ticket.domain.policy.TicketStatusTransition}
- * and authorisation checks enforce role-based rules defined in the analysis document.
+ * <p>Every state-changing operation runs in a single transaction, then publishes a
+ * {@link com.itsm.ticket.logging.LogEvent} to Kafka and notifies subscribers — both deferred
+ * to {@code afterCommit} so a rollback never produces a phantom event. Status transitions
+ * delegate to {@link com.itsm.ticket.ticket.domain.policy.TicketStatusTransition}; per-ticket
+ * authorisation is enforced via {@link #enforceCustomerOwnership}.
  */
 @Service
 public class TicketService {
@@ -76,6 +77,13 @@ public class TicketService {
         this.attachmentStorage = attachmentStorage;
     }
 
+    /**
+     * Creates a new ticket of the requested type, attaches optional initial uploads, and starts
+     * the BPMN process instance.
+     *
+     * @param actorId reporter user identifier (set as {@code reporterId})
+     * @return the persisted ticket including {@code processInstanceId} and any attachments
+     */
     @Transactional
     public Ticket create(CreateTicketRequest request, String actorId) {
         Ticket ticket = switch (request.type()) {
@@ -122,6 +130,7 @@ public class TicketService {
         return ticket;
     }
 
+    /** Drives a plain transition (no resolution/closure semantics). Throws on illegal target. */
     @Transactional
     public Ticket changeStatus(UUID ticketId, TicketStatus target, TicketRole actor, String actorId) {
         Ticket ticket = loadAndAuthorize(ticketId, actor, actorId);
@@ -145,9 +154,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * RESOLVED with mandatory resolution note (Doc §4.1).
-     */
+    /** Doc §4.1 — Transitions to {@code RESOLVED}; {@code resolutionNote} and code are mandatory. */
     @Transactional
     public Ticket resolve(UUID ticketId, String resolutionNote,
                           com.itsm.ticket.ticket.domain.enums.ResolutionCode resolutionCode,
@@ -178,9 +185,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Customer confirms closure of a RESOLVED ticket (Doc §4.1).
-     */
+    /** Doc §4.1 — Customer confirms closure of a {@code RESOLVED} ticket. */
     @Transactional
     public Ticket confirmClose(UUID ticketId, TicketRole actor, String actorId) {
         Ticket ticket = loadAndAuthorize(ticketId, actor, actorId);
@@ -208,9 +213,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Manager force-close with mandatory reason (Doc §9 — reason + audit zorunlu).
-     */
+    /** Doc §9 — Manager force-closes any ticket; reason is mandatory and audited. */
     @Transactional
     public Ticket forceClose(UUID ticketId, String reason, TicketRole actor, String actorId) {
         Ticket ticket = loadAndAuthorize(ticketId, actor, actorId);
@@ -238,10 +241,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Manager OVERRIDE_STATUS (Doc §5.4.3 'Any → IN_PROGRESS by Manager: gerekçe zorunlu').
-     * Bypasses transition policy; reason required.
-     */
+    /** Doc §5.4.3 — Manager bypasses transition policy to any target; reason mandatory. */
     @Transactional
     public Ticket overrideStatus(UUID ticketId, TicketStatus target, String reason,
                                  TicketRole actor, String actorId) {
@@ -270,10 +270,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Agent (or manager) self-assigns a NEW ticket (Doc §11 TAKE_OWNERSHIP).
-     * NEW → IN_PROGRESS happens atomically inside the aggregate.
-     */
+    /** Doc §11 — Agent self-assigns a {@code NEW} ticket; transitions atomically to {@code IN_PROGRESS}. */
     @Transactional
     public Ticket takeOwnership(UUID ticketId, TicketRole actor, String actorId) {
         Ticket ticket = loadAndAuthorize(ticketId, actor, actorId);
@@ -301,9 +298,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Manager reassigns to another agent with a mandatory reason (Doc §9).
-     */
+    /** Doc §9 — Manager-only reassignment. Reason mandatory and audited. */
     @Transactional
     public Ticket reassign(UUID ticketId, String newAssignee, String reason,
                            TicketRole actor, String actorId) {
@@ -327,9 +322,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Priority change with mandatory reason (Doc §3.2 — audit zorunlu).
-     */
+    /** Doc §3.2 — Adjusts impact/urgency (which recomputes priority). Reason audited. */
     @Transactional
     public Ticket changePriority(UUID ticketId, ChangePriorityRequest request,
                                  TicketRole actor, String actorId) {
@@ -359,6 +352,7 @@ public class TicketService {
         return ticket;
     }
 
+    /** Posts a comment on the timeline. Customers may not write {@code INTERNAL} visibility. */
     @Transactional
     public TicketEvent addComment(UUID ticketId, AddCommentRequest request, String actorId, boolean isCustomer) {
         if (isCustomer && request.visibility() == TicketEventVisibility.INTERNAL) {
@@ -379,10 +373,8 @@ public class TicketService {
     }
 
     /**
-     * Doc §7.8 — Customer files a service-quality complaint against this ticket.
-     * Stored as an INTERNAL ticket event so agent/manager timelines pick it up but the
-     * customer view stays focused on the resolution conversation. Manager notified via
-     * the existing notification channel.
+     * Doc §7.8 — Customer files a service-quality complaint. Recorded as an {@code INTERNAL}
+     * timeline event; managers receive a notification.
      */
     @Transactional
     public TicketEvent addComplaint(UUID ticketId, AddComplaintRequest request, String actorId, boolean isCustomer) {
@@ -404,6 +396,7 @@ public class TicketService {
         return event;
     }
 
+    /** Internal worklog entry; agent/manager only. Customers receive 403. */
     @Transactional
     public TicketEvent addWorklog(UUID ticketId, AddWorklogRequest request, String actorId, boolean isCustomer) {
         if (isCustomer) {
@@ -411,7 +404,6 @@ public class TicketService {
         }
         Ticket ticket = loadOrThrow(ticketId);
         TicketEvent event = ticket.addWorklog(actorId, request.body(), request.visibility());
-        // (Agent/Manager — sahiplik kontrolü gerekmez; rol AGENT/MANAGER zaten doğrulandı.)
         ticket.audit(actorId, CatalogEventType.WORKLOG_ADDED, null,
                 toJson(Map.of("visibility", request.visibility().name())));
         ticketRepository.save(ticket);
@@ -423,10 +415,7 @@ public class TicketService {
         return event;
     }
 
-    /**
-     * Multipart upload variant — accepts a real {@link MultipartFile}, persists bytes via
-     * {@link AttachmentStorageService}, and creates the Attachment record with audit+event.
-     */
+    /** Persists multipart bytes via {@link AttachmentStorageService} and creates the record. */
     @Transactional
     public Attachment uploadAttachment(UUID ticketId, MultipartFile file,
                                        TicketEventVisibility visibility, String actorId,
@@ -459,9 +448,7 @@ public class TicketService {
         return attachment;
     }
 
-    /**
-     * Resolves an attachment for download, enforcing visibility against the requesting role.
-     */
+    /** Loads an attachment for download, enforcing visibility and ownership. */
     @Transactional(readOnly = true)
     public Attachment findForDownload(UUID ticketId, UUID attachmentId, boolean customerView, String actorId) {
         Ticket ticket = loadOrThrow(ticketId);
@@ -474,10 +461,12 @@ public class TicketService {
         return attachment;
     }
 
+    /** Resolves the on-disk path for an attachment. Caller is responsible for visibility checks. */
     public java.nio.file.Path resolveAttachmentPath(Attachment attachment) {
         return attachmentStorage.resolve(attachment.getStorageKey());
     }
 
+    /** JSON-only attachment variant: pre-stored object referenced by storage key. */
     @Transactional
     public Attachment addAttachment(UUID ticketId, AddAttachmentRequest request, String actorId,
                                     boolean isCustomer) {
@@ -505,10 +494,7 @@ public class TicketService {
         return attachment;
     }
 
-    /**
-     * Manager approves a SERVICE_REQUEST (Doc §2.4).
-     * After approval the ticket becomes resolvable.
-     */
+    /** Doc §2.4 — Manager approves a pending service request; ticket becomes resolvable. */
     @Transactional
     public Ticket approveRequest(UUID ticketId, TicketRole actor, String actorId) {
         Ticket ticket = loadAndAuthorize(ticketId, actor, actorId);
@@ -539,9 +525,7 @@ public class TicketService {
         return ticket;
     }
 
-    /**
-     * Manager rejects a SERVICE_REQUEST with mandatory reason (Doc §2.4).
-     */
+    /** Doc §2.4 — Manager rejects a pending service request. Reason mandatory. */
     @Transactional
     public Ticket rejectRequest(UUID ticketId, String reason, TicketRole actor, String actorId) {
         Ticket ticket = loadAndAuthorize(ticketId, actor, actorId);
@@ -573,9 +557,11 @@ public class TicketService {
     }
 
     /**
-     * Doc §4.4.6 — Customer submits a 1-5 rating after closure. Only the reporter may submit,
-     * only after CLOSED, and only once per ticket. The assignee snapshot is captured at
-     * submission time (immutable for reporting).
+     * Doc §4.4.6 — Reporter submits a 1–5 rating after closure. One submission per ticket;
+     * agent assignee is snapshotted immutably for reporting.
+     *
+     * @throws com.itsm.ticket.ticket.exception.UnauthorizedOperationException if caller is not the reporter
+     * @throws IllegalArgumentException if status is not {@code CLOSED} or feedback already exists
      */
     @Transactional
     public com.itsm.ticket.ticket.domain.TicketFeedback submitFeedback(
@@ -612,6 +598,7 @@ public class TicketService {
         return feedback;
     }
 
+    /** Returns the feedback for a ticket, if submitted. */
     @Transactional(readOnly = true)
     public java.util.Optional<com.itsm.ticket.ticket.domain.TicketFeedback> findFeedback(UUID ticketId,
                                                                                          TicketRole actor,
@@ -621,9 +608,13 @@ public class TicketService {
         return feedbackRepository.findByTicketId(ticketId);
     }
 
-    /** Doc §13 NFR — max page size 50. Capped here so callers can't bypass via a larger ?size param. */
+    /** Doc §13 NFR — page size hard cap. */
     public static final int MAX_PAGE_SIZE = 50;
 
+    /**
+     * Returns a paginated ticket list filtered by role: customers see their own reports,
+     * agents see their queue (NEW unassigned + assigned open), managers see all.
+     */
     @Transactional(readOnly = true)
     public List<Ticket> list(TicketRole role, String actorId, org.springframework.data.domain.Pageable pageable) {
         org.springframework.data.domain.Pageable capped = capPageSize(pageable);
@@ -644,13 +635,7 @@ public class TicketService {
         return pageable;
     }
 
-    /**
-     * Doc §6.7 — Overtime tickets: still open (not RESOLVED/CLOSED) and the SLA clock has
-     * already exceeded its deadline. The clock state may be RUNNING or PAUSED; we compute
-     * the current elapsed value (which adds live ticking for RUNNING) and compare against the
-     * deadline so a paused ticket whose persisted elapsed is already over the deadline shows up.
-     * Manager-only — enforced at the controller layer.
-     */
+    /** Doc §6.7 — Open tickets whose current elapsed exceeds the deadline. Manager-only. */
     @Transactional(readOnly = true)
     public List<Ticket> listOvertime() {
         return ticketRepository.findByStatusNotIn(
@@ -665,6 +650,7 @@ public class TicketService {
                 .toList();
     }
 
+    /** Ordered timeline. {@code EXTERNAL}-only events for customers; full visibility for staff. */
     @Transactional(readOnly = true)
     public List<TicketEvent> getTimeline(UUID ticketId, boolean customerView, String actorId) {
         Ticket ticket = loadOrThrow(ticketId);
@@ -676,6 +662,7 @@ public class TicketService {
         return ticketEventRepository.findByTicket_IdOrderByOccurredAtAsc(ticketId);
     }
 
+    /** Attachments visible to caller. Customers see only {@code EXTERNAL} ones. */
     @Transactional(readOnly = true)
     public List<Attachment> getAttachments(UUID ticketId, boolean customerView, String actorId) {
         Ticket ticket = loadOrThrow(ticketId);
@@ -687,6 +674,11 @@ public class TicketService {
         return attachmentRepository.findByTicket_IdOrderByUploadedAtDesc(ticketId);
     }
 
+    /**
+     * Loads a ticket by id, enforcing customer ownership.
+     *
+     * @throws com.itsm.ticket.ticket.exception.TicketNotFoundException if not present
+     */
     @Transactional(readOnly = true)
     public Ticket getById(UUID ticketId, TicketRole actor, String actorId) {
         return loadAndAuthorize(ticketId, actor, actorId);
@@ -722,10 +714,6 @@ public class TicketService {
         }
     }
 
-    /**
-     * Customer'ın bir ticket'a erişme yetkisi var mı kontrol eder. Reporter olmayan customer
-     * 403 alır — cross-tenant veri sızıntısının son hattı.
-     */
     private void enforceCustomerOwnership(Ticket ticket, TicketRole actor, String actorId) {
         if (actor == TicketRole.CUSTOMER && !actorId.equals(ticket.getReporterId())) {
             throw new UnauthorizedOperationException("You can only access your own tickets");

@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/** Wire-format projection of Ticket including allowedActions. */
 public record TicketResponse(
         UUID id,
         String type,

@@ -7,6 +7,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Immutable entry in a ticket's timeline: comment, worklog, complaint or system event.
+ * Visibility ({@code EXTERNAL}/{@code INTERNAL}) drives customer access checks.
+ */
 @Entity
 @Table(name = "ticket_events")
 public class TicketEvent {

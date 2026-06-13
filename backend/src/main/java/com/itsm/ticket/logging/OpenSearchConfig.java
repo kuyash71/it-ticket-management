@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.net.URI;
 
+/** Wires the OpenSearch Java client used by {@link OpenSearchLogIndexer}. */
 @Configuration
 public class OpenSearchConfig {
 

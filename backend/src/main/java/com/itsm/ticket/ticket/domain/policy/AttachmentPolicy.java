@@ -4,6 +4,7 @@ import com.itsm.ticket.ticket.exception.AttachmentPolicyViolationException;
 
 import java.util.Set;
 
+/** Size + MIME-type whitelist for uploads (Doc §7). 10 MB max. */
 public class AttachmentPolicy {
 
     public static final long MAX_SIZE_BYTES = 10L * 1024 * 1024;
@@ -21,6 +22,7 @@ public class AttachmentPolicy {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
 
+    /** @throws AttachmentPolicyViolationException if mime is rejected or size exceeds {@link #MAX_SIZE_BYTES} */
     public void validate(String mimeType, long sizeBytes) {
         if (sizeBytes > MAX_SIZE_BYTES) {
             throw new AttachmentPolicyViolationException(

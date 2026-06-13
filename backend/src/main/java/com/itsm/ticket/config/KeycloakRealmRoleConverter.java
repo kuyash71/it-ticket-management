@@ -13,6 +13,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Builds a {@link JwtAuthenticationToken} from a Keycloak-issued JWT, mapping both
+ * {@code realm_access.roles} and {@code resource_access.*.roles} to {@code ROLE_*} authorities.
+ */
 public class KeycloakRealmRoleConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     @Override

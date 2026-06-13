@@ -1,5 +1,6 @@
 package com.itsm.ticket.ticket.domain.enums;
 
+/** Category of an entry on the ticket timeline. */
 public enum TicketEventType {
     COMMENT,
     WORKLOG,

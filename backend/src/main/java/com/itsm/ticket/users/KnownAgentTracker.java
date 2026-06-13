@@ -18,16 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Her authenticated AGENT / MANAGER / CUSTOMER kullanıcıyı kaydeder; manager reassign için
- * agent listesi, scheduler ise reminder mail lookup'u için kullanır.
- *
- * <p>Filter, DB'ye write yapan sıcak bir path olduğundan üç optimizasyon uygular:
- * <ol>
- *   <li>Authentication yoksa hemen çıkar (permitAll endpoint'leri etkilemez).</li>
- *   <li>Aynı kullanıcı için son DB yazımı {@link #THROTTLE_WINDOW}'tan yeniyse skip.</li>
- *   <li>Spring tarafından ayrıca {@link org.springframework.boot.web.servlet.FilterRegistrationBean}
- *       ile {@code /api/*} pattern'ına bind edilir (UsersFilterConfig).</li>
- * </ol>
+ * Authenticated kullanıcıları kaydeder; manager reassign listesi ve reminder mail lookup için.
+ * /api/* path'lerine bind, kullanıcı başına {@link #THROTTLE_WINDOW} boyunca tek DB yazımı.
  */
 public class KnownAgentTracker extends OncePerRequestFilter {
 
@@ -50,7 +42,6 @@ public class KnownAgentTracker extends OncePerRequestFilter {
                 upsertIfNeeded(jwtAuth);
             }
         } catch (Exception e) {
-            // Tracking request akışını kıramaz; sessizce devam.
             logger.warn("KnownAgent upsert failed: " + e.getMessage());
         }
         chain.doFilter(request, response);
@@ -67,7 +58,6 @@ public class KnownAgentTracker extends OncePerRequestFilter {
         String role = resolveRole(jwtAuth);
         if (!TRACKED_ROLES.contains(role)) return;
 
-        // Throttle: aynı user için son yazımdan THROTTLE_WINDOW geçmediyse, DB'ye dokunma.
         Instant now = Instant.now();
         Instant prev = lastSeen.get(username);
         if (prev != null && Duration.between(prev, now).compareTo(THROTTLE_WINDOW) < 0) {

@@ -6,6 +6,11 @@ import jakarta.persistence.*;
 import java.time.Duration;
 import java.time.Instant;
 
+/**
+ * Per-ticket SLA timer (Doc §6). Accumulates elapsed seconds while {@code RUNNING};
+ * pauses when the ticket waits on the customer and stops on resolution. The
+ * {@link #deadline} is set at creation by {@code SLADeadlineService} from type+priority.
+ */
 @Entity
 @Table(name = "sla_clock")
 public class SLAClock {
@@ -33,6 +38,7 @@ public class SLAClock {
         this.startedAt = Instant.now();
     }
 
+    /** Accumulates time since last resume and switches to {@code PAUSED}. No-op if already paused or stopped. */
     public void pause() {
         if (this.state == SLAClockState.STOPPED) return;
         if (this.state == SLAClockState.PAUSED) return;
@@ -41,6 +47,7 @@ public class SLAClock {
         this.state = SLAClockState.PAUSED;
     }
 
+    /** Restarts ticking from {@code now}. No-op if already running or stopped. */
     public void resume() {
         if (this.state == SLAClockState.STOPPED) return;
         if (this.state == SLAClockState.RUNNING) return;
@@ -48,6 +55,7 @@ public class SLAClock {
         this.state = SLAClockState.RUNNING;
     }
 
+    /** Finalises elapsed time and transitions to {@code STOPPED}. Terminal state. */
     public void stop() {
         if (this.state == SLAClockState.STOPPED) return;
         this.stoppedAt = Instant.now();

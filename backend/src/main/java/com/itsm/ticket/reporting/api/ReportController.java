@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Aggregate reporting endpoints (Doc §12). Restricted to agent/manager; customer requests
+ * are rejected with 403.
+ */
 @Tag(name = "Reports", description = "Ticket reporting and statistics (agent/manager only)")
 @RestController
 @RequestMapping("/api/v1/reports")

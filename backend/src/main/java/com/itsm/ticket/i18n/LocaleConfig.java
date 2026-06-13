@@ -9,6 +9,7 @@ import org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver;
 
 import java.util.Locale;
 
+/** TR/EN message bundle + Accept-Language locale resolution (defaults to Turkish). */
 @Configuration
 public class LocaleConfig {
 

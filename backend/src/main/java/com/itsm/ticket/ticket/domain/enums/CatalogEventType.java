@@ -1,5 +1,6 @@
 package com.itsm.ticket.ticket.domain.enums;
 
+/** Canonical action codes written into {@link com.itsm.ticket.ticket.domain.AuditRecord}. */
 public enum CatalogEventType {
     TICKET_CREATED,
     TICKET_UPDATED,

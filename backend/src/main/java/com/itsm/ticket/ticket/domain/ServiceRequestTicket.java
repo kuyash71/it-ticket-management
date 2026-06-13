@@ -9,6 +9,11 @@ import com.itsm.ticket.ticket.domain.policy.StatusTransitionPolicy;
 import com.itsm.ticket.ticket.exception.IllegalStatusTransitionException;
 import jakarta.persistence.*;
 
+/**
+ * Subtype representing a service request that requires manager approval before work begins
+ * (Doc §2.4). Owns a {@link ServiceRequestApproval}; transitions to {@code IN_PROGRESS} or
+ * {@code RESOLVED} are blocked while approval is pending.
+ */
 @Entity
 @DiscriminatorValue("SERVICE_REQUEST")
 public class ServiceRequestTicket extends Ticket {

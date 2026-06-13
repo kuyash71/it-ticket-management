@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
+/**
+ * Translates domain and security exceptions into {@link ErrorResponse} payloads with the
+ * appropriate HTTP status. Error messages are i18n'd via {@link MessageSource}.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -49,12 +53,6 @@ public class GlobalExceptionHandler {
         return new ErrorResponse("ATTACHMENT_POLICY_VIOLATION", msg("error.attachment.policy_violation", ex.getMessage()));
     }
 
-    /**
-     * Domain-level invalid input. Mesajı doğrudan döndürürüz çünkü domain'in attığı IAE
-     * tipik olarak "Resolution note is required" gibi user-actionable bir text içerir.
-     * Eğer ileride generic IAE'ler güvenlik kaygısı yaratırsa, custom domain exception sınıfları
-     * ile değiştirilmelidir.
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
@@ -75,28 +73,19 @@ public class GlobalExceptionHandler {
         return new ErrorResponse("VALIDATION_ERROR", msg("error.validation", "Validation failed") + " (" + detail + ")");
     }
 
-    /**
-     * Spring Security'nin attığı AccessDeniedException → 403. Aksi takdirde catch-all 500'e
-     * düşerdi; user yetki ihlali yerine "internal error" görürdü.
-     */
     @ExceptionHandler(AccessDeniedException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleAccessDenied(AccessDeniedException ex) {
         return new ErrorResponse("FORBIDDEN", msg("auth.forbidden", "Access denied"));
     }
 
-    /**
-     * JWT geçersiz/expired/missing → 401.
-     */
     @ExceptionHandler(AuthenticationException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleAuthentication(AuthenticationException ex) {
         return new ErrorResponse("UNAUTHENTICATED", msg("auth.unauthenticated", "Authentication required"));
     }
 
-    /**
-     * Doc §11 Concurrency & Tutarlılık — version uyuşmazlığı 409 Conflict döner.
-     */
+    /** Doc §11 — @Version mismatch → 409. */
     @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleOptimisticLock(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {

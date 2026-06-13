@@ -73,7 +73,6 @@ export const TicketsPage = ({ onViewDetail, externalCreateOpen, onCreateOpenChan
     });
   }, [tickets, statusFilter, typeFilter, priorityFilter, search]);
 
-  // Her rol kendi adına ticket açabilir — backend reporter olarak actor'u kaydeder.
   const canCreate = true;
   const filtersActive = statusFilter !== "ALL" || typeFilter !== "ALL" || priorityFilter !== "ALL" || search.length > 0 || overtimeOnly;
 

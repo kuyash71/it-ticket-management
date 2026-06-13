@@ -10,6 +10,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Logs an outbound notification line whenever {@link NotificationRule} permits the event.
+ * The actual transport (mail, webhook, push) is out of scope; this acts as a hook point.
+ * When called inside an active transaction, dispatch is deferred to {@code afterCommit}.
+ */
 @Service
 public class NotificationService {
 
@@ -17,10 +22,9 @@ public class NotificationService {
 
     private final NotificationRule rule = new NotificationRule();
 
+    /** Queues a notification; no-op when the policy rejects the event. */
     public void notify(UUID ticketId, CatalogEventType eventType, Map<String, Object> context) {
         if (!rule.shouldNotify(eventType, context)) return;
-        // Aktif transaction varsa, gerçek bildirimi commit sonrasına ertele —
-        // rollback olursa müşteriye yanlış event gitmez.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

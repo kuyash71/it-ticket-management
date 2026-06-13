@@ -12,9 +12,8 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 /**
- * Doc §4.2 — Customer reminder maili. {@code spring.mail.host} tanımlı değilse Spring
- * {@link JavaMailSender} bean'i yine de oluşur ama gönderim deneneminde IO hatası verir.
- * Burada defensive davranıyoruz: host yoksa log-only mode'da çalışırız.
+ * Doc §4.2 — Sends abandoned-case reminder mails. Runs in log-only mode when
+ * {@code spring.mail.host} is unset so the rest of the app still works without SMTP.
  */
 @Service
 public class MailService {
@@ -37,9 +36,9 @@ public class MailService {
     }
 
     /**
-     * Hatırlatma mailini gönderir. Email bilinmiyorsa veya SMTP yapılandırılmamışsa sessizce
-     * loglayıp döner; arayan tarafa istisna sızdırmaz çünkü scheduler reminder tekrar denemesin
-     * (idempotency Ticket.reminderSentAt ile sağlanıyor).
+     * Sends a reminder mail. Returns {@code true} on send, {@code false} when skipped
+     * (no email / log-only mode) or when SMTP transport fails. Never throws — callers rely
+     * on {@code Ticket.reminderSentAt} for idempotency.
      */
     public boolean sendReminder(String toEmail, UUID ticketId, String ticketTitle) {
         if (toEmail == null || toEmail.isBlank()) {

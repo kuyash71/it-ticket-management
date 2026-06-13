@@ -2,6 +2,7 @@ package com.itsm.ticket.reporting.api;
 
 import java.util.Map;
 
+/** Aggregate counts and SLA metrics surfaced on the manager dashboard. */
 public record SummaryReport(
         long openTickets,
         long totalTickets,

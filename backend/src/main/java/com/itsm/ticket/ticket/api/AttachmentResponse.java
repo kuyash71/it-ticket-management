@@ -5,6 +5,7 @@ import com.itsm.ticket.ticket.domain.Attachment;
 import java.time.Instant;
 import java.util.UUID;
 
+/** Wire-format projection of Attachment. */
 public record AttachmentResponse(
         UUID id,
         String fileName,

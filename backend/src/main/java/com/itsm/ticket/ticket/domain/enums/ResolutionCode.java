@@ -1,5 +1,6 @@
 package com.itsm.ticket.ticket.domain.enums;
 
+/** Classification of how a ticket was resolved (Doc §4.1). */
 public enum ResolutionCode {
     FIXED,
     WORKAROUND,

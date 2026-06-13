@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 
+/** Manager approval record attached to a {@link ServiceRequestTicket}. Mandatory for resolution. */
 @Entity
 public class ServiceRequestApproval {
 

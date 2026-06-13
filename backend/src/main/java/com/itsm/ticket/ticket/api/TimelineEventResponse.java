@@ -5,6 +5,7 @@ import com.itsm.ticket.ticket.domain.TicketEvent;
 import java.time.Instant;
 import java.util.UUID;
 
+/** Wire-format projection of TicketEvent. */
 public record TimelineEventResponse(
         UUID id,
         String eventType,

@@ -22,22 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Dev-only security config — Keycloak / JWT'yi köprüler, isteklere fake kullanıcıyı inject eder.
- *
- * <p>Yalnızca {@code SPRING_PROFILES_ACTIVE=dev} ile başlatıldığında devreye girer. Production
- * deploy'da bu sınıf Spring container'a hiç yüklenmez. {@code SecurityConfig} ise {@code @Profile("!dev")}
- * ile production akışını sürdürür — iki sınıf birbiriyle mutual exclusive.
- *
- * <p>Konfigürasyon:
- * <pre>
- *   itsm.auth.fake-user:  manager1
- *   itsm.auth.fake-roles: MANAGER          (virgülle çoklu olabilir: AGENT,MANAGER)
- * </pre>
- *
- * <p>Hangi rol/kullanıcı olarak çalışmak istiyorsan env var'ı değiştirip backend'i restart et;
- * hiçbir kod değişikliği gerekmez.
- */
+/** Dev-only: SPRING_PROFILES_ACTIVE=dev iken Keycloak/JWT yerine fake user inject edilir. */
 @Configuration
 @EnableMethodSecurity
 @Profile("dev")

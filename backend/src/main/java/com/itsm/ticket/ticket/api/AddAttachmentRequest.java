@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+/** Request body for attaching metadata for a pre-stored object. */
 public record AddAttachmentRequest(
         @NotBlank @Size(max = 255) String fileName,
         @NotBlank @Size(max = 127) String mimeType,

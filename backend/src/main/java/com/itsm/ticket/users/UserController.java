@@ -9,6 +9,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * Read-only directory of agents and managers, populated by {@link KnownAgentTracker}
+ * as users authenticate. Used by the reassign dialog.
+ */
 @Tag(name = "Users", description = "Agent and manager user directory")
 @RestController
 @RequestMapping("/api/v1/users")

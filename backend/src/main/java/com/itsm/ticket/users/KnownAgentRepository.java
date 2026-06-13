@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.List;
 
+/** Persistence operations for {@link KnownAgent}. Custom UPSERT for tracker writes. */
 public interface KnownAgentRepository extends JpaRepository<KnownAgent, String> {
 
     List<KnownAgent> findByRoleInOrderByDisplayNameAsc(List<String> roles);

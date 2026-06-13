@@ -11,6 +11,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
+/** Request body for opening a new ticket; supports optional initial attachments. */
 public record CreateTicketRequest(
         @NotNull TicketType type,
         @NotBlank @Size(max = 255) String title,

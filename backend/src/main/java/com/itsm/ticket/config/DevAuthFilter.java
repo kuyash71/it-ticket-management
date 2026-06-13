@@ -20,16 +20,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * SADECE 'dev' profile'da kullanılan auth bypass filter'ı.
- *
- * <p>Her isteğe önceden tanımlanmış fake bir kullanıcıyı {@code JwtAuthenticationToken} olarak
- * inject eder. Böylece backend kod tabanı ({@code auth.getName()}, {@code ROLE_*} authority
- * kontrolleri, ownership check'leri) hiç değişmeden çalışır; sadece JWT doğrulama köprülenir.
- *
- * <p><b>UYARI:</b> Bu filter production'da asla kullanılmaz — {@code @Profile("dev")} ile
- * Spring container'a sadece dev profile aktifken eklenir.
- */
+/** Dev-only: her isteğe sabit bir fake kullanıcıyı JwtAuthenticationToken olarak inject eder. */
 public class DevAuthFilter extends OncePerRequestFilter {
 
     private final String fakeUser;

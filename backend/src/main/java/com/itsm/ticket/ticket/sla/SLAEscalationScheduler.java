@@ -25,19 +25,14 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Periodically checks every open ticket and emits SLABreachRisk / SLABreached events
- * the first time each threshold (Doc §6.7) is crossed.
- * Levels: NORMAL (<70%) → WARNING (≥70%) → RISK (≥85%) → BREACH (≥100%)
- *
- * <p>Per-ticket transaction template is used so a single ticket exception/lock contention
- * does not roll back the whole scan, and tx scope stays short — DB locks don't stretch.
+ * Doc §6.7 — açık ticket'lar için SLA eşik geçişlerinde (WARNING ≥70%, RISK ≥85%, BREACH ≥100%)
+ * tek seferlik event üretir. Her ticket kendi kısa tx'inde işlenir.
  */
 @Component
 public class SLAEscalationScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(SLAEscalationScheduler.class);
     private static final SLAEscalationService POLICY = new SLAEscalationService();
-    /** Batch size — limits memory + transaction span per pass. */
     private static final int BATCH = 200;
 
     private final TicketRepository ticketRepository;
@@ -58,13 +53,12 @@ public class SLAEscalationScheduler {
         this.txTemplate = new TransactionTemplate(txManager);
     }
 
-    /** Runs every minute (fixedDelay so it never overlaps itself). */
+    /** Scans open tickets in batches; per ticket runs in its own transaction. */
     @Scheduled(fixedDelayString = "${itsm.sla.check-interval-ms:60000}",
                initialDelayString = "${itsm.sla.initial-delay-ms:30000}")
     public void evaluate() {
         int page = 0;
         while (true) {
-            // Each page read in its own short tx; ids extracted, then per-ticket processing follows.
             Page<Ticket> chunk = ticketRepository.findByStatusNotIn(
                     List.of(TicketStatus.RESOLVED, TicketStatus.CLOSED),
                     PageRequest.of(page, BATCH));
@@ -89,7 +83,7 @@ public class SLAEscalationScheduler {
         long elapsed = ticket.currentElapsedSeconds();
         SLAEscalationLevel current = POLICY.evaluate(elapsed, ticket.getSlaClock().getDeadline());
         SLAEscalationLevel previous = ticket.getSlaLevel() != null ? ticket.getSlaLevel() : SLAEscalationLevel.NORMAL;
-        if (current.ordinal() <= previous.ordinal()) return;
+        if (current.ordinal() <= previous.ordinal()) return; // no upgrade
 
         ticket.setSlaLevel(current);
 
@@ -110,7 +104,6 @@ public class SLAEscalationScheduler {
         ticket.audit("system", eventType, "SLA escalation auto-detected", payload);
         ticketRepository.save(ticket);
 
-        // Kafka publish + notification — afterCommit ile commit sonrasına alınır (producer içinde).
         kafkaLogProducer.publish(LogEvent.of(eventType.name(), ticket.getId().toString(), "system",
                 Map.of("level", current.name(),
                         "elapsedSeconds", String.valueOf(elapsed),

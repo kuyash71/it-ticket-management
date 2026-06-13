@@ -6,6 +6,10 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * File uploaded against a ticket (Doc §9). Storage key resolves to a file under the
+ * configured attachment root; visibility controls customer access.
+ */
 @Entity
 @Table(name = "attachments")
 public class Attachment {

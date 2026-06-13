@@ -94,8 +94,6 @@ services:
       otel-collector:
         condition: service_started
     environment:
-      # Profile seçimi: 'dev' → auth bypass + fake user; boş/default → gerçek Keycloak akışı.
-      # Kullanım:  SPRING_PROFILE=dev docker compose up -d backend
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-default}
       ITSM_AUTH_FAKE_USER: ${ITSM_AUTH_FAKE_USER:-manager1}
       ITSM_AUTH_FAKE_ROLES: ${ITSM_AUTH_FAKE_ROLES:-MANAGER}

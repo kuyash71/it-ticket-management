@@ -35,6 +35,7 @@ public class ReportService {
         this.ticketRepository = ticketRepository;
     }
 
+    /** Aggregate counts: status/type breakdown, open total, SLA breach rate, average resolution. */
     @Cacheable("summary-report")
     @Transactional(readOnly = true)
     public SummaryReport summary() {

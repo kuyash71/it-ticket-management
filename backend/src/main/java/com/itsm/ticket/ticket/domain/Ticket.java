@@ -10,6 +10,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Aggregate root for the ticket lifecycle (Doc §4). Owns its timeline events, attachments,
+ * audit records, and SLA clock. Subclassed by {@link IncidentTicket} and
+ * {@link ServiceRequestTicket} via JOINED inheritance.
+ *
+ * <p>State transitions go through {@link #transitionTo}, {@link #resolve},
+ * {@link #confirmClose}, {@link #forceClose}, or {@link #overrideStatus}; each enforces
+ * role and policy invariants and writes an audit + system event.
+ *
+ * <p>Concurrent updates are protected by {@link #version} (JPA optimistic locking) —
+ * a conflicting modify raises {@code ObjectOptimisticLockingFailureException} which the
+ * controller layer maps to HTTP 409.
+ */
 @Entity
 @Table(name = "tickets")
 @Inheritance(strategy = InheritanceType.JOINED)

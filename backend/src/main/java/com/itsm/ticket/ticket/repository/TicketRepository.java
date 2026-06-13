@@ -9,20 +9,15 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+/** Persistence operations for {@link Ticket}, including agent-queue and SLA-driven queries. */
 public interface TicketRepository extends JpaRepository<Ticket, UUID> {
-    /**
-     * Tickets with an active SLA clock (i.e. not yet resolved/closed).
-     * Pageable variant zorunlu — scheduler ve overtime endpoint sınırsız dönmesini istemiyor.
-     */
+    /** Open tickets (status not in CLOSED/RESOLVED). */
     org.springframework.data.domain.Page<Ticket> findByStatusNotIn(List<TicketStatus> statuses, Pageable pageable);
 
     /** Customer view: only tickets the user opened. */
     List<Ticket> findByReporterId(String reporterId, Pageable pageable);
 
-    /**
-     * Agent kuyruğu: ya kuyruğa düşen (NEW + sahipsiz) ya da bana atanıp hâlâ açık olan
-     * (CLOSED/RESOLVED hariç). Kapanan ticket'lar agent kuyruğundan düşer.
-     */
+    /** Agent queue: (NEW + unassigned) ∪ (assigned to me AND NOT CLOSED/RESOLVED). */
     @org.springframework.data.jpa.repository.Query(
             "SELECT t FROM Ticket t WHERE " +
             "(t.status = com.itsm.ticket.ticket.domain.enums.TicketStatus.NEW AND t.assigneeId IS NULL) " +

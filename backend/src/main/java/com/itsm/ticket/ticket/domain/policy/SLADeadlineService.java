@@ -6,6 +6,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketType;
 import java.util.HashMap;
 import java.util.Map;
 
+/** Static SLA deadline matrix in seconds, keyed by (type, priority). Values from Doc §6.2. */
 public class SLADeadlineService implements SLADeadlineCalculationPolicy {
     private final Map<DeadlineKey, Long> matrix;
 

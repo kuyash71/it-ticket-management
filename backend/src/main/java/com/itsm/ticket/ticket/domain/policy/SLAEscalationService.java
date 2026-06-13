@@ -2,6 +2,7 @@ package com.itsm.ticket.ticket.domain.policy;
 
 import com.itsm.ticket.ticket.domain.enums.SLAEscalationLevel;
 
+/** Threshold ladder: ≥70 % WARNING, ≥85 % RISK, ≥100 % BREACH (Doc §6.7). */
 public class SLAEscalationService implements SLAEscalationPolicy{
 
     @Override

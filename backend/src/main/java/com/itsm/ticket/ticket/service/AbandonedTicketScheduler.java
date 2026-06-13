@@ -31,19 +31,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Doc §4.2 — Yanıtsız Müşteri / Abandoned-Case akışı.
- *
- * <p>Saatlik tarama: WAITING_FOR_CUSTOMER state'indeki ticket'ların SLAClock.pausedAt'ı
- * referans alınır. {@code reminderHours} threshold'unu geçmiş ve daha önce reminder
- * gönderilmemiş ticket'lara mail + audit + system event üretilir. {@code timeoutHours}
- * geçmiş ve henüz flag'lenmemiş ticket'lar manager'a notification ile bildirilir.
- *
- * <p>Idempotency, Ticket üzerindeki {@code reminderSentAt} ve {@code abandonedFlaggedAt}
- * alanlarıyla sağlanır.
- *
- * <p>Tasarım: ticket başına ayrı kısa transaction kullanılır. SMTP çağrısı tx <i>dışında</i>
- * (commit sonrası) yapılır — mail server timeout'u DB tx'ini stretch'lemez ve rollback durumunda
- * duplicate mail önlenir.
+ * Doc §4.2 — Yanıtsız Müşteri taraması. WAITING_FOR_CUSTOMER ticket'larda
+ * reminderHours ⇒ mail, timeoutHours ⇒ manager notification.
+ * Idempotency: {@code reminderSentAt}/{@code abandonedFlaggedAt}. SMTP commit sonrası.
  */
 @Component
 public class AbandonedTicketScheduler {
@@ -81,7 +71,7 @@ public class AbandonedTicketScheduler {
         this.timeoutHours = timeoutHours;
     }
 
-    /** Default: her saat başı (top of hour). */
+    /** Hourly scan: emits reminders past the reminder threshold and flags long-stale tickets. */
     @Scheduled(cron = "${itsm.abandoned.scan-cron:0 0 * * * *}")
     public void scan() {
         Instant now = Instant.now();
@@ -117,11 +107,7 @@ public class AbandonedTicketScheduler {
         }
     }
 
-    /**
-     * Tek bir ticket için işlem — kısa, kendi transaction'ında çalışır.
-     * SMTP / Kafka / Notification afterCommit hookları ile commit sonrasına alınır.
-     * Returns [reminded, flagged] sayaçları.
-     */
+    /** Returns [reminded, flagged]. */
     private int[] processOne(UUID ticketId, Instant reminderCutoff, Instant timeoutCutoff) {
         Ticket ticket = ticketRepository.findById(ticketId).orElse(null);
         if (ticket == null) return new int[]{0, 0};
@@ -145,8 +131,6 @@ public class AbandonedTicketScheduler {
                     "recipient", email != null ? email : "")));
             ticket.audit("system", CatalogEventType.AUTO_REMINDER_SENT, null,
                     toJson(Map.of("hours", String.valueOf(reminderHours))));
-            // Mail send — commit sonrasında. SMTP timeout'u tx'i stretch'lemez,
-            // rollback durumunda duplicate mail gitmez.
             final String to = email;
             final UUID tid = ticket.getId();
             final String title = ticket.getTitle();
@@ -167,7 +151,6 @@ public class AbandonedTicketScheduler {
 
         ticketRepository.save(ticket);
 
-        // Kafka publish + notification — producer içinde afterCommit'e zaten kayıt yapar.
         if (reminded == 1) {
             kafkaLogProducer.publish(LogEvent.of("AUTO_REMINDER_SENT", ticket.getId().toString(),
                     "system", Map.of("reporter", ticket.getReporterId() != null ? ticket.getReporterId() : "")));
@@ -179,7 +162,6 @@ public class AbandonedTicketScheduler {
                     "system", Map.of("hours", String.valueOf(timeoutHours))));
         }
 
-        // Mail send'i tx commit'ten sonra çalıştır.
         if (!afterCommitActions.isEmpty()) {
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                     new org.springframework.transaction.support.TransactionSynchronization() {

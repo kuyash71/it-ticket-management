@@ -19,6 +19,11 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Production security setup: stateless JWT resource server backed by Keycloak,
+ * CORS limited to configured origins, and role-based path matchers. Excluded under
+ * the {@code dev} profile (replaced by {@link DevSecurityConfig}).
+ */
 @Configuration
 @EnableMethodSecurity
 @org.springframework.context.annotation.Profile("!dev")

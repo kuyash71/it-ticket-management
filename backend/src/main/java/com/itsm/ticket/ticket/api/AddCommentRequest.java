@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+/** Request body for posting a comment on a ticket timeline. */
 public record AddCommentRequest(
         @NotBlank @Size(max = 10000) String body,
         @NotNull TicketEventVisibility visibility,

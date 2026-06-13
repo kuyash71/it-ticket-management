@@ -24,8 +24,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [roles, setRoles] = useState<UserRole[]>([]);
 
   useEffect(() => {
-    // Dev bypass: VITE_AUTH_BYPASS=true ise Keycloak init atla, fake user ile başla.
-    // Backend de dev profile'da DevAuthFilter ile aynı şekilde fake auth kullanır.
     if (import.meta.env.VITE_AUTH_BYPASS === "true") {
       const fakeRoles = (import.meta.env.VITE_AUTH_FAKE_ROLES ?? "MANAGER")
         .split(",")
@@ -56,8 +54,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         setBearerToken(keycloak.token);
       };
 
-      // Proactive refresh — token süresi dolduğunda 401'i beklemeden tazele.
-      // Aksi takdirde her isteğin 401 alıp interceptor üzerinden retry etmesi gerekirdi.
       keycloak.onTokenExpired = () => {
         keycloak.updateToken(30).catch(() => {
           void keycloak.login();
@@ -88,8 +84,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
         void keycloak.login();
       },
       logout: () => {
-        // Logout çağrısı redirect başlatır; redirect race'inde stale token'la
-        // request gitmesin diye bearer'ı ve local state'i hemen temizle.
         setBearerToken(undefined);
         setToken(undefined);
         setAuthenticated(false);

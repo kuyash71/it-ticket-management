@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+/** Indexes {@link LogEvent}s asynchronously into the configured OpenSearch index. */
 @Service
 public class OpenSearchLogIndexer {
 

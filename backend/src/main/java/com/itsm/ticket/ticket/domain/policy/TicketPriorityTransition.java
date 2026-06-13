@@ -6,6 +6,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketUrgency;
 
 import java.util.HashMap;
 import java.util.Map;
+/** Default priority matrix backing {@link PriorityTransitionPolicy}. */
 public class TicketPriorityTransition implements PriorityTransitionPolicy {
     private final Map<PriorityKey, TicketPriority> matrix;
 

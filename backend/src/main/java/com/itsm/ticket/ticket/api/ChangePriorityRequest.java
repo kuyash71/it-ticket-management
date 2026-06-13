@@ -5,6 +5,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketUrgency;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** Request body for adjusting impact, urgency or both. Reason mandatory. */
 public record ChangePriorityRequest(
         TicketImpact impact,
         TicketUrgency urgency,

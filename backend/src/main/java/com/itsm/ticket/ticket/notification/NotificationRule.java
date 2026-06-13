@@ -6,6 +6,7 @@ import com.itsm.ticket.ticket.domain.enums.TicketStatus;
 
 import java.util.Map;
 
+/** Decides whether an event should produce an outbound notification (Doc §10). */
 public class NotificationRule {
 
     private static final java.util.Set<TicketStatus> CUSTOMER_FACING_STATUSES =

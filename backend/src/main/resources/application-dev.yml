@@ -1,17 +1,9 @@
-# Dev profile — auth bypass ile geliştirme modu.
-# Aktivasyon:  SPRING_PROFILES_ACTIVE=dev
-# Production'da kullanılmamalı; tüm istekler aşağıdaki fake-user/roles olarak görülür.
-
 itsm:
   auth:
-    # Hangi kullanıcı olarak çalışacağız?
     fake-user: ${ITSM_AUTH_FAKE_USER:manager1}
-    # Virgülle birden fazla rol: MANAGER,AGENT  vb.
     fake-roles: ${ITSM_AUTH_FAKE_ROLES:MANAGER}
 
 spring:
-  # OAuth2 resource server auto-config'ini tamamen kapat — Keycloak'a OIDC discovery
-  # isteği gitmeye çalışmasın (Keycloak container çalışmıyor olabilir).
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration

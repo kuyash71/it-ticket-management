@@ -26,6 +26,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * REST endpoints for ticket lifecycle: create, transition, comment, attachment, feedback,
+ * approval, and manager intervention (override / force-close / reassign).
+ *
+ * <p>All endpoints are bearer-token authenticated. Per-ticket authorization (CUSTOMER may
+ * only access tickets they reported) is enforced by {@link TicketService}.
+ */
 @Tag(name = "Tickets", description = "IT ticket lifecycle management")
 @RestController
 @RequestMapping("/api/v1/tickets")

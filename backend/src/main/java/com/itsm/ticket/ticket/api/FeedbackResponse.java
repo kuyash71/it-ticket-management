@@ -5,6 +5,7 @@ import com.itsm.ticket.ticket.domain.TicketFeedback;
 import java.time.Instant;
 import java.util.UUID;
 
+/** Wire-format projection of TicketFeedback. */
 public record FeedbackResponse(
         UUID ticketId,
         String customerId,
